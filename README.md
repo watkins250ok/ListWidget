@@ -84,6 +84,8 @@ Decide whether or not you want Lists and the Items page to show the total number
 <img width="270" height="317.25" alt="app_settingspage_categorymanagement" src="https://github.com/user-attachments/assets/a6ada9c8-dbd8-4993-a4bf-3bd7d6cbebaf" />
 
 As you can see, the "New Category" button is weird. I'll be fixing that.
+UPDATE: Fixed!
+
 See and edit the default item categories, and create your own. If you get bogged down, you can reset the default categories back to Task/Idea/Note.
 Customize the icon and accent color for each category.
 
@@ -96,6 +98,8 @@ Let your list help you prioritize. Default priorities are included, but editable
 ## Widget Examples
 
 Samples of what the widgets look like on the homescreen. They are size adjustable, and contents adapt to the size.
+
+UPDATE: Fixed issue where tapping checkbox items in the widget opened the app instead of checking the item off.
 
 <img width="270" height="585" alt="app_examplewidgets2" src="https://github.com/user-attachments/assets/25e3987a-1f53-4b8e-aa15-c67797d740df" />
 
