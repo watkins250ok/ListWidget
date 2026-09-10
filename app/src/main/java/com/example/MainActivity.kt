@@ -20,34 +20,27 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Checklist
-import androidx.compose.material.icons.filled.FormatListBulleted
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -82,7 +75,7 @@ class MainActivity : ComponentActivity() {
             ListWidgetAppTheme(
                 themeMode = themeMode,
                 colorPalette = colorPalette,
-                fontFamily = fontFamily
+                fontFamily = fontFamily,
             ) {
                 MainAppScreen(viewModel = viewModel)
             }
@@ -150,16 +143,17 @@ fun MainAppScreen(viewModel: ListAppViewModel) {
     }
 
     Scaffold(
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        contentWindowInsets = WindowInsets.systemBars,
         topBar = {
             if (selectedList == null) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(MaterialTheme.colorScheme.background)
-                        .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 4.dp),
+                        .statusBarsPadding()
+                        .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column {
                         Text(
@@ -171,8 +165,8 @@ fun MainAppScreen(viewModel: ListAppViewModel) {
                             },
                             style = MaterialTheme.typography.headlineSmall.copy(
                                 fontWeight = FontWeight.Bold,
-                                letterSpacing = (-0.5).sp
-                            )
+                                letterSpacing = (-0.5).sp,
+                            ),
                         )
                     }
                 }
@@ -183,9 +177,10 @@ fun MainAppScreen(viewModel: ListAppViewModel) {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
                     tonalElevation = 0.dp,
+                    windowInsets = NavigationBarDefaults.windowInsets,
                     modifier = Modifier
                         .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
-                        .testTag("bottom_nav_bar")
+                        .testTag("bottom_nav_bar"),
                 ) {
                     NavigationBarItem(
                         selected = currentTab == AppNavTab.ALL_LISTS,
@@ -195,19 +190,19 @@ fun MainAppScreen(viewModel: ListAppViewModel) {
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
-                        )
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                        ),
                     )
                     NavigationBarItem(
                         selected = currentTab == AppNavTab.ALL_ITEMS,
                         onClick = { viewModel.selectTab(AppNavTab.ALL_ITEMS) },
-                        icon = { Icon(Icons.Default.FormatListBulleted, contentDescription = "All Items") },
+                        icon = { Icon(Icons.AutoMirrored.Filled.FormatListBulleted, contentDescription = "All Items") },
                         label = { Text("Items", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
-                        )
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                        ),
                     )
                     NavigationBarItem(
                         selected = currentTab == AppNavTab.GALLERY,
@@ -217,8 +212,8 @@ fun MainAppScreen(viewModel: ListAppViewModel) {
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
-                        )
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                        ),
                     )
                     NavigationBarItem(
                         selected = currentTab == AppNavTab.SETTINGS,
@@ -228,8 +223,8 @@ fun MainAppScreen(viewModel: ListAppViewModel) {
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
-                        )
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                        ),
                     )
                 }
             }
@@ -334,6 +329,8 @@ fun MainAppScreen(viewModel: ListAppViewModel) {
                                 onSetColorPalette = { viewModel.setColorPalette(it) },
                                 onSetFontFamily = { viewModel.setFontFamily(it) },
                                 onSetShowCounts = { viewModel.setShowCounts(it) },
+                                onExportBackup = { viewModel.exportBackupJson() },
+                                onRestoreBackup = { viewModel.restoreBackupJson(it) },
                                 onAddPriority = { label, hex -> viewModel.addCustomPriority(label, hex) },
                                 onUpdatePriority = { id, label, hex -> viewModel.updatePriority(id, label, hex) },
                                 onDeletePriority = { id -> viewModel.deletePriority(id) },
@@ -352,17 +349,17 @@ fun MainAppScreen(viewModel: ListAppViewModel) {
             }
 
             // POP-UP ITEM DETAIL / EDIT DIALOG (Matching Screenshot)
-            if (activeItemForPopup != null || showNewItemPopup) {
+            if ((activeItemForPopup != null) || showNewItemPopup) {
                 ItemPopupDialog(
                     itemToEdit = activeItemForPopup,
                     defaultListId = selectedListId ?: 0L,
                     lists = allLists,
                     categories = categories,
                     priorities = priorities,
-                    onDismiss = { viewModel.closeItemPopup() },
-                    onSave = { viewModel.saveItem(it) },
-                    onDelete = { viewModel.deleteItem(it) },
-                    onAddCustomCategory = { name, icon, color -> viewModel.addCustomCategory(name, icon, color) }
+                    onDismiss = viewModel::closeItemPopup,
+                    onSave = viewModel::saveItem,
+                    onDelete = viewModel::deleteItem,
+                    onAddCustomCategory = viewModel::addCustomCategory
                 )
             }
 
@@ -370,9 +367,9 @@ fun MainAppScreen(viewModel: ListAppViewModel) {
             if (showCreateListDialog) {
                 CreateListDialog(
                     listToEdit = activeListForEdit,
-                    onDismiss = { viewModel.closeCreateListDialog() },
-                    onSave = { viewModel.saveList(it) },
-                    onDelete = { viewModel.deleteList(it) }
+                    onDismiss = viewModel::closeCreateListDialog,
+                    onSave = viewModel::saveList,
+                    onDelete = viewModel::deleteList
                 )
             }
         }

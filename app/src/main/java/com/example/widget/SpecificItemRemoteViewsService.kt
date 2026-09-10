@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
+import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
@@ -118,6 +119,13 @@ class SpecificItemRemoteViewsFactory(
             putExtra(ListAppWidgetProvider.EXTRA_IS_CHECKED, item.isChecked)
         }
 
+        val textScale = when (widgetConfig.textSizeScale.uppercase()) {
+            "SMALL" -> 0.85f
+            "LARGE" -> 1.15f
+            "XLARGE" -> 1.30f
+            else -> 1.0f
+        }
+
         return when (val row = rows[position]) {
             is DisplayRow.Header -> {
                 val views = RemoteViews(context.packageName, R.layout.widget_specific_header_row)
@@ -125,6 +133,8 @@ class SpecificItemRemoteViewsFactory(
                 views.setTextViewText(R.id.widget_header_list_name, row.listName)
                 views.setTextViewText(R.id.widget_header_category_badge, row.item.category)
                 views.setTextViewText(R.id.widget_header_priority_badge, "${row.item.priority} Priority")
+
+                views.setTextViewTextSize(R.id.widget_header_title, TypedValue.COMPLEX_UNIT_SP, 15f * textScale)
 
                 if (isWhiteTheme) {
                     views.setTextColor(R.id.widget_header_title, Color.parseColor("#0F172A"))
@@ -148,7 +158,8 @@ class SpecificItemRemoteViewsFactory(
                     }
                     views.setOnClickFillInIntent(R.id.widget_header_checkbox, checkFillInIntent)
                 } else {
-                    views.setImageViewResource(R.id.widget_header_checkbox, R.drawable.ic_widget_bullet_dot)
+                    val categoryRes = getCategoryDrawableRes(row.item.effectiveCategory)
+                    views.setImageViewResource(R.id.widget_header_checkbox, categoryRes)
                 }
 
                 views.setOnClickFillInIntent(R.id.widget_specific_header_container, fillInIntent)
@@ -165,6 +176,7 @@ class SpecificItemRemoteViewsFactory(
             is DisplayRow.Description -> {
                 val views = RemoteViews(context.packageName, R.layout.widget_specific_desc_row)
                 views.setTextViewText(R.id.widget_specific_desc_text, row.text)
+                views.setTextViewTextSize(R.id.widget_specific_desc_text, TypedValue.COMPLEX_UNIT_SP, 11.5f * textScale)
                 if (isWhiteTheme) {
                     views.setTextColor(R.id.widget_specific_desc_text, Color.parseColor("#334155"))
                     views.setTextColor(R.id.widget_specific_desc_label, Color.parseColor("#64748B"))
@@ -178,6 +190,7 @@ class SpecificItemRemoteViewsFactory(
             is DisplayRow.SubTaskItem -> {
                 val views = RemoteViews(context.packageName, R.layout.widget_specific_subtask_row)
                 views.setTextViewText(R.id.widget_specific_subtask_title, row.subtask.title)
+                views.setTextViewTextSize(R.id.widget_specific_subtask_title, TypedValue.COMPLEX_UNIT_SP, 11.5f * textScale)
                 views.setImageViewResource(
                     R.id.widget_specific_subtask_check,
                     if (row.subtask.isCompleted) R.drawable.ic_widget_checkbox_checked else R.drawable.ic_widget_checkbox_unchecked

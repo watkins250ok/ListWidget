@@ -46,6 +46,7 @@ data class WidgetStyleConfig(
     val colorPreset: ColorPalettePreset = ColorPalettePreset.PURPLE_VIOLET,
     val themeStyle: String = "PURPLE", // "WHITE", "PURPLE", "MIDNIGHT", "OCEAN", "EMERALD", "SUNSET", "ROSE", "SLATE", "MINT", "AMBER", "LAVENDER", "CORAL"
     val showDescription: Boolean = true,
-    val hideChecked: Boolean = false
+    val hideChecked: Boolean = false,
+    val textSizeScale: String = "MEDIUM" // "SMALL", "MEDIUM", "LARGE", "XLARGE"
 )
 

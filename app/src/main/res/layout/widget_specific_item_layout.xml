@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/widget_bg_purple"
-    android:padding="12dp">
+    android:padding="8dp">
 
     <!-- Top Navigation / Header Bar -->
     <LinearLayout
@@ -14,7 +14,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingBottom="6dp">
+        android:paddingBottom="4dp">
 
         <TextView
             android:id="@+id/widget_item_header_title"
@@ -45,7 +45,7 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:divider="@android:color/transparent"
-        android:dividerHeight="4dp"
+        android:dividerHeight="3dp"
         android:scrollbars="vertical" />
 
     <!-- Empty State -->

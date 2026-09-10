@@ -13,6 +13,7 @@ import com.example.data.model.PriorityOption
 import com.example.data.model.SubTask
 import com.example.data.model.WidgetStyleConfig
 import com.example.data.model.WidgetType
+import com.example.notification.NotificationScheduler
 import com.example.widget.ListAppWidgetProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +24,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 
 class ListRepository(
     private val context: Context,
@@ -162,7 +165,8 @@ class ListRepository(
                             } catch (_: Exception) { ColorPalettePreset.PURPLE_VIOLET },
                             themeStyle = obj.optString("themeStyle", "PURPLE"),
                             showDescription = obj.optBoolean("showDescription", true),
-                            hideChecked = obj.optBoolean("hideChecked", false)
+                            hideChecked = obj.optBoolean("hideChecked", false),
+                            textSizeScale = obj.optString("textSizeScale", "MEDIUM")
                         )
                     )
                 }
@@ -223,6 +227,7 @@ class ListRepository(
             obj.put("themeStyle", w.themeStyle)
             obj.put("showDescription", w.showDescription)
             obj.put("hideChecked", w.hideChecked)
+            obj.put("textSizeScale", w.textSizeScale)
             jsonArray.put(obj)
         }
         prefs.edit().putString("saved_widget_configs_v3_json", jsonArray.toString()).apply()
@@ -306,23 +311,26 @@ class ListRepository(
 
     suspend fun insertItem(item: ListItemEntity): Long = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
-        val id = itemDao.insertItem(item.copy(updatedAt = now))
-        // Touch list updatedAt
+        val savedItem = item.copy(updatedAt = now)
+        val id = itemDao.insertItem(savedItem)
         val list = listDao.getListById(item.listId)
         if (list != null) {
             listDao.updateList(list.copy(updatedAt = now))
         }
+        NotificationScheduler.scheduleItemReminder(context, savedItem.copy(id = id), list?.name ?: "List")
         triggerWidgetUpdate()
         id
     }
 
     suspend fun updateItem(item: ListItemEntity) = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
-        itemDao.updateItem(item.copy(updatedAt = now))
+        val savedItem = item.copy(updatedAt = now)
+        itemDao.updateItem(savedItem)
         val list = listDao.getListById(item.listId)
         if (list != null) {
             listDao.updateList(list.copy(updatedAt = now))
         }
+        NotificationScheduler.scheduleItemReminder(context, savedItem, list?.name ?: "List")
         checkAutoDelete(item)
         triggerWidgetUpdate()
     }
@@ -339,6 +347,11 @@ class ListRepository(
         val list = listDao.getListById(item.listId)
         if (list != null) {
             listDao.updateList(list.copy(updatedAt = now))
+        }
+        if (isChecked) {
+            NotificationScheduler.cancelItemReminder(context, itemId)
+        } else {
+            NotificationScheduler.scheduleItemReminder(context, updated, list?.name ?: "List")
         }
         checkAutoDelete(updated)
         triggerWidgetUpdate()
@@ -370,6 +383,7 @@ class ListRepository(
         if (list != null) {
             listDao.updateList(list.copy(updatedAt = System.currentTimeMillis()))
         }
+        NotificationScheduler.cancelItemReminder(context, item.id)
         triggerWidgetUpdate()
     }
 
@@ -603,6 +617,7 @@ class ListRepository(
                     themeStyle = obj.optString("themeStyle", "PURPLE"),
                     showDescription = obj.optBoolean("showDescription", true),
                     hideChecked = obj.optBoolean("hideChecked", false),
+                    textSizeScale = obj.optString("textSizeScale", "MEDIUM"),
                     customImageUri = if (obj.isNull("customImageUri")) null else obj.optString("customImageUri", null)
                 )
             } catch (_: Exception) {}
@@ -611,7 +626,13 @@ class ListRepository(
         val boundConfigId = prefs.getString("appwidget_${appWidgetId}_config_id", null)
         if (boundConfigId != null) {
             val bound = _allWidgets.value.find { it.widgetId == boundConfigId }
-            if (bound != null) return bound
+            if (bound != null) {
+                return if (defaultType != null && bound.widgetType != defaultType) {
+                    bound.copy(widgetType = defaultType)
+                } else {
+                    bound
+                }
+            }
         }
 
         val widgets = _allWidgets.value
@@ -652,6 +673,7 @@ class ListRepository(
                 put("themeStyle", config.themeStyle)
                 put("showDescription", config.showDescription)
                 put("hideChecked", config.hideChecked)
+                put("textSizeScale", config.textSizeScale)
                 put("customImageUri", config.customImageUri)
             }
             prefs.edit()
@@ -712,6 +734,288 @@ class ListRepository(
 
     fun resetPriorities() {
         savePriorities(PriorityOption.DEFAULT_PRIORITIES)
+    }
+
+    suspend fun exportBackupJson(): String = withContext(Dispatchers.IO) {
+        val root = JSONObject()
+        root.put("version", 1)
+        root.put("exportedAt", System.currentTimeMillis())
+
+        val appVersionName = try {
+            val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            pInfo.versionName ?: "1.0.0"
+        } catch (_: Throwable) { "1.0.0" }
+        root.put("appVersion", appVersionName)
+
+        // Settings
+        val settingsObj = JSONObject().apply {
+            put("themeMode", _themeMode.value.name)
+            put("colorPalette", _colorPalette.value.name)
+            put("fontFamily", _fontFamily.value.name)
+            put("showCounts", _showCounts.value)
+        }
+        root.put("settings", settingsObj)
+
+        // Lists
+        val lists = listDao.getAllListsSync()
+        val listsArray = JSONArray()
+        lists.forEach { list ->
+            val lObj = JSONObject().apply {
+                put("id", list.id)
+                put("name", list.name)
+                put("iconName", list.iconName)
+                put("description", list.description ?: "")
+                put("colorHex", list.colorHex)
+                put("autoDeleteMode", list.autoDeleteMode)
+                put("hideCheckedItems", list.hideCheckedItems)
+                put("customIconUri", list.customIconUri)
+                put("createdAt", list.createdAt)
+                put("updatedAt", list.updatedAt)
+            }
+            listsArray.put(lObj)
+        }
+        root.put("lists", listsArray)
+
+        // Items
+        val items = itemDao.getAllItemsSync()
+        val itemsArray = JSONArray()
+        items.forEach { item ->
+            val iObj = JSONObject().apply {
+                put("id", item.id)
+                put("listId", item.listId)
+                put("title", item.title)
+                put("type", item.type)
+                put("category", item.category)
+                put("section", item.section)
+                put("isChecked", item.isChecked)
+                if (item.checkedAt != null) put("checkedAt", item.checkedAt)
+                put("description", item.description)
+                if (item.imageUri != null) put("imageUri", item.imageUri)
+                put("createdAt", item.createdAt)
+                put("updatedAt", item.updatedAt)
+                if (item.dueDate != null) put("dueDate", item.dueDate)
+                put("priority", item.priority)
+                put("tags", item.tags)
+                put("subtasksJson", item.subtasksJson)
+            }
+            itemsArray.put(iObj)
+        }
+        root.put("items", itemsArray)
+
+        // Categories
+        val categoriesArray = JSONArray()
+        _categories.value.forEach { cat ->
+            val cObj = JSONObject().apply {
+                put("id", cat.id)
+                put("name", cat.name)
+                put("iconKey", cat.iconKey)
+                put("colorHex", cat.colorHex)
+                put("isDefault", cat.isDefault)
+            }
+            categoriesArray.put(cObj)
+        }
+        root.put("categories", categoriesArray)
+
+        // Priorities
+        val prioritiesArray = JSONArray()
+        _priorities.value.forEach { pri ->
+            val pObj = JSONObject().apply {
+                put("id", pri.id)
+                put("label", pri.label)
+                put("colorHex", pri.colorHex)
+            }
+            prioritiesArray.put(pObj)
+        }
+        root.put("priorities", prioritiesArray)
+
+        // Widgets
+        val widgetsArray = JSONArray()
+        _allWidgets.value.forEach { w ->
+            val wObj = JSONObject().apply {
+                put("widgetId", w.widgetId)
+                put("widgetName", w.widgetName)
+                put("widgetType", w.widgetType.name)
+                put("listId", w.listId)
+                put("itemId", w.itemId)
+                put("categoryFilter", w.categoryFilter)
+                put("tagFilter", w.tagFilter)
+                if (w.customImageUri != null) put("customImageUri", w.customImageUri)
+                put("colorPreset", w.colorPreset.name)
+                put("themeStyle", w.themeStyle)
+                put("showDescription", w.showDescription)
+                put("hideChecked", w.hideChecked)
+                put("textSizeScale", w.textSizeScale)
+            }
+            widgetsArray.put(wObj)
+        }
+        root.put("widgets", widgetsArray)
+
+        root.toString(2)
+    }
+
+    suspend fun restoreBackupJson(jsonStr: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val root = JSONObject(jsonStr)
+
+            // Settings
+            if (root.has("settings")) {
+                val settings = root.getJSONObject("settings")
+                val tModeStr = settings.optString("themeMode", null)
+                if (tModeStr != null) {
+                    try { setThemeMode(AppThemeMode.valueOf(tModeStr)) } catch (_: Exception) {}
+                }
+                val colorPresetStr = settings.optString("colorPalette", null)
+                if (colorPresetStr != null) {
+                    try { setColorPalette(ColorPalettePreset.valueOf(colorPresetStr)) } catch (_: Exception) {}
+                }
+                val fontStr = settings.optString("fontFamily", null)
+                if (fontStr != null) {
+                    try { setFontFamily(AppFontFamily.valueOf(fontStr)) } catch (_: Exception) {}
+                }
+                if (settings.has("showCounts")) {
+                    setShowCounts(settings.getBoolean("showCounts"))
+                }
+            }
+
+            // Categories
+            if (root.has("categories")) {
+                val catArray = root.getJSONArray("categories")
+                val newCatList = mutableListOf<CategoryOption>()
+                for (i in 0 until catArray.length()) {
+                    val cObj = catArray.getJSONObject(i)
+                    newCatList.add(
+                        CategoryOption(
+                            id = cObj.optString("id", "cat_$i"),
+                            name = cObj.optString("name", "Category $i"),
+                            iconKey = cObj.optString("iconKey", "tag"),
+                            colorHex = cObj.optString("colorHex", "#0284C7"),
+                            isDefault = cObj.optBoolean("isDefault", false)
+                        )
+                    )
+                }
+                if (newCatList.isNotEmpty()) {
+                    saveCategories(newCatList)
+                }
+            }
+
+            // Priorities
+            if (root.has("priorities")) {
+                val priArray = root.getJSONArray("priorities")
+                val newPriList = mutableListOf<PriorityOption>()
+                for (i in 0 until priArray.length()) {
+                    val pObj = priArray.getJSONObject(i)
+                    newPriList.add(
+                        PriorityOption(
+                            id = pObj.optString("id", "pri_$i"),
+                            label = pObj.optString("label", "Priority $i"),
+                            colorHex = pObj.optString("colorHex", "#64748B")
+                        )
+                    )
+                }
+                if (newPriList.isNotEmpty()) {
+                    savePriorities(newPriList)
+                }
+            }
+
+            // Lists
+            if (root.has("lists")) {
+                val listsArray = root.getJSONArray("lists")
+                val listsToInsert = mutableListOf<ListEntity>()
+                for (i in 0 until listsArray.length()) {
+                    val lObj = listsArray.getJSONObject(i)
+                    listsToInsert.add(
+                        ListEntity(
+                            id = lObj.optLong("id", 0L),
+                            name = lObj.optString("name", "List"),
+                            iconName = lObj.optString("iconName", "checklist"),
+                            description = if (lObj.isNull("description")) null else lObj.optString("description", null),
+                            colorHex = lObj.optString("colorHex", "#7C3AED"),
+                            autoDeleteMode = lObj.optString("autoDeleteMode", "NEVER"),
+                            hideCheckedItems = lObj.optBoolean("hideCheckedItems", false),
+                            customIconUri = if (lObj.isNull("customIconUri")) null else lObj.optString("customIconUri", null),
+                            createdAt = lObj.optLong("createdAt", System.currentTimeMillis()),
+                            updatedAt = lObj.optLong("updatedAt", System.currentTimeMillis())
+                        )
+                    )
+                }
+                if (listsToInsert.isNotEmpty()) {
+                    listsToInsert.forEach { listDao.insertList(it) }
+                }
+            }
+
+            // Items
+            if (root.has("items")) {
+                val itemsArray = root.getJSONArray("items")
+                val itemsToInsert = mutableListOf<ListItemEntity>()
+                for (i in 0 until itemsArray.length()) {
+                    val iObj = itemsArray.getJSONObject(i)
+                    itemsToInsert.add(
+                        ListItemEntity(
+                            id = iObj.optLong("id", 0L),
+                            listId = iObj.optLong("listId", 0L),
+                            title = iObj.optString("title", ""),
+                            type = iObj.optString("type", "TASK"),
+                            category = iObj.optString("category", "Task"),
+                            section = iObj.optString("section", ""),
+                            isChecked = iObj.optBoolean("isChecked", false),
+                            checkedAt = if (iObj.isNull("checkedAt")) null else iObj.optLong("checkedAt"),
+                            description = iObj.optString("description", ""),
+                            imageUri = if (iObj.isNull("imageUri")) null else iObj.optString("imageUri"),
+                            createdAt = iObj.optLong("createdAt", System.currentTimeMillis()),
+                            updatedAt = iObj.optLong("updatedAt", System.currentTimeMillis()),
+                            dueDate = if (iObj.isNull("dueDate")) null else iObj.optLong("dueDate"),
+                            priority = iObj.optString("priority", "NONE"),
+                            tags = iObj.optString("tags", ""),
+                            subtasksJson = iObj.optString("subtasksJson", "[]")
+                        )
+                    )
+                }
+                if (itemsToInsert.isNotEmpty()) {
+                    itemsToInsert.forEach { itemDao.insertItem(it) }
+                }
+            }
+
+            // Widgets
+            if (root.has("widgets")) {
+                val widgetsArray = root.getJSONArray("widgets")
+                val widgetList = mutableListOf<WidgetStyleConfig>()
+                for (i in 0 until widgetsArray.length()) {
+                    val wObj = widgetsArray.getJSONObject(i)
+                    val wType = try {
+                        WidgetType.valueOf(wObj.optString("widgetType", WidgetType.SPECIFIC_LIST.name))
+                    } catch (_: Exception) { WidgetType.SPECIFIC_LIST }
+                    val cPreset = try {
+                        ColorPalettePreset.valueOf(wObj.optString("colorPreset", ColorPalettePreset.PURPLE_VIOLET.name))
+                    } catch (_: Exception) { ColorPalettePreset.PURPLE_VIOLET }
+
+                    widgetList.add(
+                        WidgetStyleConfig(
+                            widgetId = wObj.optString("widgetId", "widget_${i + 1}"),
+                            widgetName = wObj.optString("widgetName", "Widget ${i + 1}"),
+                            widgetType = wType,
+                            listId = wObj.optLong("listId", 0L),
+                            itemId = wObj.optLong("itemId", 0L),
+                            categoryFilter = wObj.optString("categoryFilter", "ALL"),
+                            tagFilter = wObj.optString("tagFilter", "ALL"),
+                            customImageUri = if (wObj.isNull("customImageUri")) null else wObj.optString("customImageUri"),
+                            colorPreset = cPreset,
+                            themeStyle = wObj.optString("themeStyle", "PURPLE"),
+                            showDescription = wObj.optBoolean("showDescription", true),
+                            hideChecked = wObj.optBoolean("hideChecked", false),
+                            textSizeScale = wObj.optString("textSizeScale", "MEDIUM")
+                        )
+                    )
+                }
+                if (widgetList.isNotEmpty()) {
+                    saveWidgetsList(widgetList)
+                }
+            }
+
+            triggerWidgetUpdate()
+            true
+        } catch (_: Throwable) {
+            false
+        }
     }
 
     private fun triggerWidgetUpdate() {

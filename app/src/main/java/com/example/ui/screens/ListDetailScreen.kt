@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import android.content.Intent
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import com.example.ui.theme.PrimaryPurple
 import androidx.compose.foundation.background
@@ -31,8 +33,10 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -84,6 +88,7 @@ fun ListDetailScreen(
     onAddNewItem: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -108,6 +113,17 @@ fun ListDetailScreen(
             }
         }
         result
+    }
+
+    val groupedSections = remember(displayItems) {
+        val hasSections = displayItems.any { it.section.isNotBlank() }
+        if (!hasSections) {
+            null
+        } else {
+            displayItems.groupBy {
+                if (it.section.isNotBlank()) it.section.trim() else "General"
+            }
+        }
     }
 
     val createdDateStr = remember(list.createdAt) {
@@ -161,6 +177,24 @@ fun ListDetailScreen(
                                     onClick = {
                                         menuExpanded = false
                                         onEditListClick(list)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Share List as Text") },
+                                    leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        val textToShare = formatListAsText(list, displayItems)
+                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_SUBJECT, list.name)
+                                            putExtra(Intent.EXTRA_TEXT, textToShare)
+                                        }
+                                        try {
+                                            context.startActivity(Intent.createChooser(shareIntent, "Share List"))
+                                        } catch (_: Throwable) {
+                                            Toast.makeText(context, "Unable to share list", Toast.LENGTH_SHORT).show()
+                                        }
                                     }
                                 )
                                 DropdownMenuItem(
@@ -287,6 +321,48 @@ fun ListDetailScreen(
                 item {
                     EmptyItemsPlaceholder(list.name) { onAddNewItem(list.id) }
                 }
+            } else if (groupedSections != null) {
+                groupedSections.forEach { (sectionName, sectionItems) ->
+                    item(key = "section_header_$sectionName") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 10.dp, bottom = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(listColor)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = sectionName.uppercase(),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.2.sp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "(${sectionItems.size})",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            )
+                        }
+                    }
+                    items(sectionItems, key = { it.id }) { item ->
+                        ItemRowCard(
+                            item = item,
+                            onToggleCheck = { onToggleCheck(item.id, it) },
+                            onClickItem = { onClickItem(item) }
+                        )
+                    }
+                }
             } else {
                 items(displayItems, key = { it.id }) { item ->
                     ItemRowCard(
@@ -339,4 +415,41 @@ private fun EmptyItemsPlaceholder(listName: String, onAddClick: () -> Unit) {
             style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
         )
     }
+}
+
+private fun formatListAsText(list: ListEntity, items: List<ListItemEntity>): String {
+    val sb = StringBuilder()
+    sb.append("📋 ").append(list.name).append("\n")
+    if (!list.description.isNullOrBlank()) {
+        sb.append(list.description).append("\n")
+    }
+    sb.append("\n")
+
+    val hasSections = items.any { it.section.isNotBlank() }
+    if (hasSections) {
+        val grouped = items.groupBy { if (it.section.isNotBlank()) it.section.trim() else "General" }
+        grouped.forEach { (sectionName, secItems) ->
+            sb.append("📌 ").append(sectionName.uppercase()).append("\n")
+            secItems.forEach { item ->
+                if (item.type == "TASK") {
+                    val checkMark = if (item.isChecked) "[x]" else "[ ]"
+                    sb.append("  ").append(checkMark).append(" ").append(item.title).append("\n")
+                } else {
+                    sb.append("  • ").append(item.title).append("\n")
+                }
+            }
+            sb.append("\n")
+        }
+    } else {
+        items.forEach { item ->
+            if (item.type == "TASK") {
+                val checkMark = if (item.isChecked) "[x]" else "[ ]"
+                sb.append(checkMark).append(" ").append(item.title).append("\n")
+            } else {
+                sb.append("• ").append(item.title).append("\n")
+            }
+        }
+    }
+
+    return sb.toString().trim()
 }

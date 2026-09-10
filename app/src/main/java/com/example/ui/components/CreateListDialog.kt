@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -74,20 +75,11 @@ fun CreateListDialog(
     var name by remember { mutableStateOf(listToEdit?.name ?: "") }
     var description by remember { mutableStateOf(listToEdit?.description ?: "") }
     var iconName by remember { mutableStateOf(listToEdit?.iconName ?: "checklist") }
-    var customIconUri by remember { mutableStateOf(listToEdit?.customIconUri) }
     var colorHex by remember { mutableStateOf(listToEdit?.colorHex ?: "#7C3AED") }
     var autoDeleteMode by remember { mutableStateOf(listToEdit?.autoDeleteMode ?: "NEVER") }
     var hideCheckedItems by remember { mutableStateOf(listToEdit?.hideCheckedItems ?: false) }
 
     var autoDeleteMenuExpanded by remember { mutableStateOf(false) }
-
-    val iconPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            customIconUri = uri.toString()
-        }
-    }
 
     val selectedColor = remember(colorHex) {
         try {
@@ -155,7 +147,7 @@ fun CreateListDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // List Icon Options & Custom Upload
+                // List Icon Options
                 Text(
                     text = "LIST ICON",
                     style = MaterialTheme.typography.labelSmall.copy(
@@ -165,53 +157,11 @@ fun CreateListDialog(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
 
-                if (customIconUri != null) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                            .padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        AsyncImage(
-                            model = customIconUri,
-                            contentDescription = "Custom Icon",
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(8.dp)),
-                            contentScale = ContentScale.Crop
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = "Custom Uploaded Icon",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(onClick = { customIconUri = null }) {
-                            Icon(imageVector = Icons.Default.Close, contentDescription = "Remove custom icon", modifier = Modifier.size(16.dp))
-                        }
-                    }
-                } else {
-                    IconPickerGrid(
-                        selectedIconName = iconName,
-                        onSelectIcon = {
-                            iconName = it
-                            customIconUri = null
-                        },
-                        accentColor = selectedColor
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = { iconPickerLauncher.launch("image/*") },
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(imageVector = Icons.Default.Image, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Upload Custom Icon Image")
-                    }
-                }
+                IconPickerGrid(
+                    selectedIconName = iconName,
+                    onSelectIcon = { iconName = it },
+                    accentColor = selectedColor
+                )
 
                 Spacer(modifier = Modifier.height(14.dp))
 
@@ -376,18 +326,26 @@ fun CreateListDialog(
                                 onDelete(listToEdit)
                                 onDismiss()
                             },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Icon(imageVector = Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Delete", color = MaterialTheme.colorScheme.error)
+                            Text("Delete", color = MaterialTheme.colorScheme.error, maxLines = 1)
                         }
                     } else {
                         Spacer(modifier = Modifier.width(4.dp))
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = onDismiss) {
+                    Row(
+                        modifier = Modifier.weight(1f, fill = false),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(
+                            onClick = onDismiss,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                        ) {
                             Text("Cancel")
                         }
                         Button(
@@ -398,7 +356,7 @@ fun CreateListDialog(
                                         id = listToEdit?.id ?: 0L,
                                         name = name.trim(),
                                         iconName = iconName,
-                                        customIconUri = customIconUri,
+                                        customIconUri = null,
                                         description = description.ifBlank { null },
                                         createdAt = listToEdit?.createdAt ?: now,
                                         updatedAt = now,
@@ -410,10 +368,15 @@ fun CreateListDialog(
                                     onDismiss()
                                 }
                             },
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.testTag("save_list_button")
                         ) {
-                            Text(if (isEditMode) "Save Changes" else "Create List")
+                            Text(
+                                text = if (isEditMode) "Save Changes" else "Create List",
+                                maxLines = 1,
+                                softWrap = false
+                            )
                         }
                     }
                 }

@@ -9,7 +9,7 @@ import com.example.data.model.ListItemEntity
 
 @Database(
     entities = [ListEntity::class, ListItemEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

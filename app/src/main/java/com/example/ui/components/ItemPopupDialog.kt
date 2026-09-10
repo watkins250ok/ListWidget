@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -120,6 +121,7 @@ fun ItemPopupDialog(
         )
     }
     var title by remember { mutableStateOf(itemToEdit?.title ?: "") }
+    var section by remember { mutableStateOf(itemToEdit?.section ?: "") }
     var description by remember { mutableStateOf(itemToEdit?.description ?: "") }
     var attachedImageUri by remember { mutableStateOf(itemToEdit?.imageUri) }
     var isChecked by remember { mutableStateOf(itemToEdit?.isChecked ?: false) }
@@ -574,6 +576,35 @@ fun ItemPopupDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // SECTION Field
+                Text(
+                    text = "SECTION (OPTIONAL)",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                OutlinedTextField(
+                    value = section,
+                    onValueChange = { section = it },
+                    placeholder = { Text("e.g. Milestones, To Do, Personal, General...") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("item_section_input"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                    ),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 // DESCRIPTION & NOTES (RICH TEXT)
                 Text(
                     text = "DESCRIPTION & NOTES (RICH TEXT)",
@@ -653,25 +684,14 @@ fun ItemPopupDialog(
                         }
                     }
                 } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    OutlinedButton(
+                        onClick = { photoPickerLauncher.launch("image/*") },
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        OutlinedButton(
-                            onClick = { photoPickerLauncher.launch("image/*") },
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(imageVector = Icons.Default.Image, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Upload Device Photo")
-                        }
-                        OutlinedButton(
-                            onClick = { attachedImageUri = "sample_sticky_notes" },
-                            shape = RoundedCornerShape(14.dp)
-                        ) {
-                            Text("Attach Sticky Notes")
-                        }
+                        Icon(imageVector = Icons.Default.Image, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Upload Device Photo")
                     }
                 }
 
@@ -1069,22 +1089,25 @@ fun ItemPopupDialog(
                             ),
                             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
                             shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
                             modifier = Modifier.testTag("delete_item_button")
                         ) {
                             Icon(imageVector = Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Delete Item")
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Delete", maxLines = 1)
                         }
                     } else {
                         Spacer(modifier = Modifier.width(8.dp))
                     }
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.weight(1f, fill = false),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         TextButton(
                             onClick = onDismiss,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                             modifier = Modifier.testTag("cancel_popup_button")
                         ) {
                             Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1100,6 +1123,7 @@ fun ItemPopupDialog(
                                         title = title.trim(),
                                         type = itemType,
                                         category = selectedCategory,
+                                        section = section.trim(),
                                         isChecked = isChecked,
                                         checkedAt = if (isChecked) (itemToEdit?.checkedAt ?: now) else null,
                                         description = description,
@@ -1117,11 +1141,16 @@ fun ItemPopupDialog(
                             },
                             shape = RoundedCornerShape(14.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
                             modifier = Modifier.testTag("save_item_button")
                         ) {
                             Icon(imageVector = Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(if (isEditMode) "Save Changes" else "Create Item")
+                            Text(
+                                text = if (isEditMode) "Save Changes" else "Create Item",
+                                maxLines = 1,
+                                softWrap = false
+                            )
                         }
                     }
                 }

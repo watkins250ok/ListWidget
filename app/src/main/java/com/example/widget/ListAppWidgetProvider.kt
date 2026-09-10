@@ -8,15 +8,15 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.view.View
+import android.util.TypedValue
 import android.widget.RemoteViews
 import com.example.MainActivity
 import com.example.R
 import com.example.data.local.AppDatabase
+import com.example.data.model.WidgetType
 import com.example.data.repository.ListRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
 open class ListAppWidgetProvider : AppWidgetProvider() {
@@ -33,7 +33,7 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetId: Int,
-        newOptions: Bundle
+        newOptions: Bundle,
     ) {
         updateAppWidget(context, appWidgetManager, appWidgetId)
         super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
@@ -66,7 +66,7 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                 } else if (isToggleSubtask) {
                     val itemId = intent.getLongExtra(EXTRA_ITEM_ID, -1L)
                     val subtaskIndex = intent.getIntExtra(EXTRA_SUBTASK_INDEX, -1)
-                    if (itemId > 0 && subtaskIndex >= 0) {
+                    if ((itemId > 0) && (subtaskIndex >= 0)) {
                         val pendingResult = goAsync()
                         CoroutineScope(Dispatchers.IO).launch {
                             try {
@@ -107,12 +107,13 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                 }
             }
             AppWidgetManager.ACTION_APPWIDGET_UPDATE,
-            ACTION_DATA_CHANGED -> {
+            ACTION_DATA_CHANGED,
+            -> {
                 try {
                     val appWidgetManager = AppWidgetManager.getInstance(context) ?: return
                     val thisWidget = ComponentName(context, ListAppWidgetProvider::class.java)
                     val appWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget)
-                    if (appWidgetIds != null && appWidgetIds.isNotEmpty()) {
+                    if ((appWidgetIds != null) && appWidgetIds.isNotEmpty()) {
                         for (id in appWidgetIds) {
                             updateAppWidget(context, appWidgetManager, id)
                         }
@@ -143,14 +144,14 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                     AllItemsWidgetProvider::class.java,
                     SpecificListWidgetProvider::class.java,
                     SpecificItemWidgetProvider::class.java,
-                    ListAppWidgetProvider::class.java
+                    ListAppWidgetProvider::class.java,
                 )
 
                 for (providerClass in providers) {
                     try {
                         val component = ComponentName(context, providerClass)
                         val appWidgetIds = appWidgetManager.getAppWidgetIds(component)
-                        if (appWidgetIds != null && appWidgetIds.isNotEmpty()) {
+                        if ((appWidgetIds != null) && appWidgetIds.isNotEmpty()) {
                             for (id in appWidgetIds) {
                                 updateAppWidget(context, appWidgetManager, id)
                             }
@@ -187,7 +188,6 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                         appWidgetManager.getAppWidgetOptions(appWidgetId)
                     } catch (_: Throwable) { null }
                     val minWidth = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0) ?: 0
-                    val minHeight = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) ?: 0
 
                     val isWhiteTheme = widgetConfig.themeStyle.equals("WHITE", ignoreCase = true)
                     val bgResId = when (widgetConfig.themeStyle.uppercase()) {
@@ -212,9 +212,9 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                     }
                     val configPendingIntent = PendingIntent.getActivity(
                         context,
-                        appWidgetId * 100 + 9,
+                        (appWidgetId * 100) + 9,
                         configIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                     )
 
                     if (widgetConfig.widgetType == com.example.data.model.WidgetType.SPECIFIC_ITEM) {
@@ -226,8 +226,16 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
 
                         views.setOnClickPendingIntent(R.id.widget_item_btn_config, configPendingIntent)
 
+                        val textScale = when (widgetConfig.textSizeScale.uppercase()) {
+                            "SMALL" -> 0.85f
+                            "LARGE" -> 1.15f
+                            "XLARGE" -> 1.30f
+                            else -> 1.0f
+                        }
+
                         val titleText = if (item != null) "📌 ${item.title}" else "📌 Featured Item"
                         views.setTextViewText(R.id.widget_item_header_title, titleText)
+                        views.setTextViewTextSize(R.id.widget_item_header_title, TypedValue.COMPLEX_UNIT_SP, 14f * textScale)
 
                         if (isWhiteTheme) {
                             views.setTextColor(R.id.widget_item_header_title, android.graphics.Color.parseColor("#0F172A"))
@@ -251,9 +259,9 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                         }
                         val clickPendingIntent = PendingIntent.getBroadcast(
                             context,
-                            appWidgetId * 100 + 4,
+                            (appWidgetId * 100) + 4,
                             clickIntentTemplate,
-                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
                         )
                         views.setPendingIntentTemplate(R.id.widget_specific_item_list, clickPendingIntent)
 
@@ -273,7 +281,7 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                     val headerTitle = when (widgetConfig.widgetType) {
                         com.example.data.model.WidgetType.ALL_LISTS -> "All Lists"
                         com.example.data.model.WidgetType.ALL_ITEMS -> {
-                            if (widgetConfig.categoryFilter != "ALL" && widgetConfig.tagFilter != "ALL") {
+                            if ((widgetConfig.categoryFilter != "ALL") && (widgetConfig.tagFilter != "ALL")) {
                                 "${widgetConfig.categoryFilter} • #${widgetConfig.tagFilter} ▾"
                             } else if (widgetConfig.categoryFilter != "ALL") {
                                 "All Items • ${widgetConfig.categoryFilter} ▾"
@@ -287,11 +295,20 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                         else -> "My List"
                     }
 
+                    val textScale = when (widgetConfig.textSizeScale.uppercase()) {
+                        "SMALL" -> 0.85f
+                        "LARGE" -> 1.15f
+                        "XLARGE" -> 1.30f
+                        else -> 1.0f
+                    }
+
                     views.setTextViewText(R.id.widget_list_title, headerTitle)
+                    views.setTextViewTextSize(R.id.widget_list_title, TypedValue.COMPLEX_UNIT_SP, 15f * textScale)
 
                     // Adjust quick add button text if resized to narrow width
-                    val quickAddLabel = if (minWidth in 1..210) "+" else "+ Quick Add"
+                    val quickAddLabel = if (minWidth in (1..210)) "+" else "+ Quick Add"
                     views.setTextViewText(R.id.widget_btn_quick_add, quickAddLabel)
+                    views.setTextViewTextSize(R.id.widget_btn_quick_add, TypedValue.COMPLEX_UNIT_SP, 11.5f * textScale)
 
                     if (isWhiteTheme) {
                         views.setTextColor(R.id.widget_list_title, android.graphics.Color.parseColor("#0F172A"))
@@ -315,15 +332,15 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                     }
                     val quickAddPending = PendingIntent.getActivity(
                         context,
-                        appWidgetId * 100 + 1,
+                        (appWidgetId * 100) + 1,
                         quickAddIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                     )
                     views.setOnClickPendingIntent(R.id.widget_btn_quick_add, quickAddPending)
 
                     // Header title click:
                     // In SPECIFIC_LIST or ALL_ITEMS mode, tapping header opens widget configuration to select list / filters easily!
-                    val headerPending = if (widgetConfig.widgetType == com.example.data.model.WidgetType.SPECIFIC_LIST || widgetConfig.widgetType == com.example.data.model.WidgetType.ALL_ITEMS) {
+                    val headerPending = if ((widgetConfig.widgetType == WidgetType.SPECIFIC_LIST) || (widgetConfig.widgetType == WidgetType.ALL_ITEMS)) {
                         configPendingIntent
                     } else {
                         val headerIntent = Intent(context, MainActivity::class.java).apply {
@@ -331,9 +348,9 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                         }
                         PendingIntent.getActivity(
                             context,
-                            appWidgetId * 100 + 2,
+                            (appWidgetId * 100) + 2,
                             headerIntent,
-                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                         )
                     }
                     views.setOnClickPendingIntent(R.id.widget_list_title, headerPending)
@@ -353,9 +370,9 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                     }
                     val clickPendingIntent = PendingIntent.getBroadcast(
                         context,
-                        appWidgetId * 100 + 3,
+                        (appWidgetId * 100) + 3,
                         clickIntentTemplate,
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
                     )
                     views.setPendingIntentTemplate(R.id.widget_list_view, clickPendingIntent)
 

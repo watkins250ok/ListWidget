@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -599,22 +600,39 @@ fun AllItemsScreen(
                     )
 
                     if (selectedTags.isNotEmpty() || selectedCategories.isNotEmpty() || selectedPriorities.isNotEmpty() || searchQuery.isNotEmpty()) {
-                        Text(
-                            text = "Reset All",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            ),
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .clickable {
-                                    onClearTags()
-                                    onClearCategories()
-                                    onClearPriorities()
-                                    onSearchChange("")
-                                }
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
+                        Surface(
+                            onClick = {
+                                onClearTags()
+                                onClearCategories()
+                                onClearPriorities()
+                                onSearchChange("")
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
+                            modifier = Modifier.testTag("clear_all_filters_btn")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Clear All Filters",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Clear All Filters",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                )
+                            }
+                        }
                     }
                 }
             }

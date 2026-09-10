@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,6 +28,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,6 +37,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddPhotoAlternate
@@ -44,19 +47,28 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Feedback
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.FormatPaint
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.RestorePage
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ViewAgenda
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -65,6 +77,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -78,6 +91,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -105,9 +119,125 @@ import com.example.data.model.WidgetType
 import com.example.ui.components.IconPickerGrid
 import com.example.ui.components.getVectorForCategory
 import com.example.widget.ListAppWidgetProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+data class AppUpdateResult(
+    val isUpdateAvailable: Boolean,
+    val latestTag: String,
+    val currentVersion: String,
+    val releaseNotes: String,
+    val releaseUrl: String,
+    val apkUrl: String?
+)
+
+private suspend fun fetchLatestGitHubRelease(context: Context): AppUpdateResult = withContext(Dispatchers.IO) {
+    val currentVersion = try {
+        val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+        pInfo.versionName ?: "1.0.0"
+    } catch (_: Throwable) { "1.0.0" }
+
+    val url = URL("https://api.github.com/repos/watkins250ok/ListWidgets/releases/latest")
+    val connection = (url.openConnection() as HttpURLConnection).apply {
+        requestMethod = "GET"
+        setRequestProperty("Accept", "application/vnd.github+json")
+        setRequestProperty("User-Agent", "ListWidget-AndroidApp")
+        connectTimeout = 8000
+        readTimeout = 8000
+    }
+
+    if (connection.responseCode == 200) {
+        val responseText = connection.inputStream.bufferedReader().use { it.readText() }
+        val json = JSONObject(responseText)
+
+        val latestTagRaw = json.optString("tag_name", "")
+        val latestTagClean = latestTagRaw.removePrefix("v").trim()
+        val releaseUrl = json.optString("html_url", "https://github.com/watkins250ok/ListWidgets/releases")
+        val body = json.optString("body", "No release notes provided.")
+
+        var apkUrl: String? = null
+        val assets = json.optJSONArray("assets")
+        if (assets != null) {
+            for (i in 0 until assets.length()) {
+                val asset = assets.getJSONObject(i)
+                val assetName = asset.optString("name", "")
+                if (assetName.endsWith(".apk", ignoreCase = true)) {
+                    apkUrl = asset.optString("browser_download_url", null)
+                    break
+                }
+            }
+        }
+
+        val isNewer = compareVersions(latestTagClean, currentVersion) > 0
+
+        AppUpdateResult(
+            isUpdateAvailable = isNewer,
+            latestTag = latestTagRaw.ifBlank { "v$latestTagClean" },
+            currentVersion = currentVersion,
+            releaseNotes = body,
+            releaseUrl = releaseUrl,
+            apkUrl = apkUrl
+        )
+    } else {
+        throw IOException("GitHub API returned HTTP ${connection.responseCode}")
+    }
+}
+
+private fun compareVersions(latest: String, current: String): Int {
+    val latestParts = latest.split(".").mapNotNull { it.toIntOrNull() }
+    val currentParts = current.split(".").mapNotNull { it.toIntOrNull() }
+    val maxLen = maxOf(latestParts.size, currentParts.size)
+
+    for (i in 0 until maxLen) {
+        val l = latestParts.getOrElse(i) { 0 }
+        val c = currentParts.getOrElse(i) { 0 }
+        if (l > c) return 1
+        if (c > l) return -1
+    }
+    return 0
+}
+
+private fun sendFeedbackEmail(context: Context, messageText: String) {
+    val currentVersion = try {
+        val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+        pInfo.versionName ?: "1.0.0"
+    } catch (_: Throwable) { "1.0.0" }
+
+    val recipient = "watkins250ok@gmail.com"
+    val subject = "ListWidget Feedback (v$currentVersion)"
+    val body = StringBuilder().apply {
+        if (messageText.isNotBlank()) {
+            append(messageText)
+            append("\n\n")
+        }
+        append("--- App & Device Info ---\n")
+        append("App Version: ").append(currentVersion).append("\n")
+        append("Android Version: ").append(Build.VERSION.RELEASE).append(" (API ").append(Build.VERSION.SDK_INT).append(")\n")
+        append("Device: ").append(Build.MANUFACTURER).append(" ").append(Build.MODEL)
+    }.toString()
+
+    val intent = Intent(Intent.ACTION_SENDTO).apply {
+        data = Uri.parse("mailto:")
+        putExtra(Intent.EXTRA_EMAIL, arrayOf(recipient))
+        putExtra(Intent.EXTRA_SUBJECT, subject)
+        putExtra(Intent.EXTRA_TEXT, body)
+    }
+
+    try {
+        val chooser = Intent.createChooser(intent, "Send Feedback via Email")
+        context.startActivity(chooser)
+    } catch (_: Throwable) {
+        Toast.makeText(context, "No email client found on device", Toast.LENGTH_SHORT).show()
+    }
+}
 
 data class WidgetThemeStyleOption(
     val key: String,
@@ -140,6 +270,8 @@ fun WidgetStudioScreen(
     onSetColorPalette: (ColorPalettePreset) -> Unit,
     onSetFontFamily: (AppFontFamily) -> Unit,
     onSetShowCounts: (Boolean) -> Unit,
+    onExportBackup: suspend () -> String = { "" },
+    onRestoreBackup: suspend (String) -> Boolean = { false },
     onAddPriority: (String, String) -> Unit,
     onUpdatePriority: (String, String, String) -> Unit = { _, _, _ -> },
     onDeletePriority: (String) -> Unit = {},
@@ -154,6 +286,7 @@ fun WidgetStudioScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var listDropdownOpen by remember { mutableStateOf(false) }
     var itemPickerDropdownOpen by remember { mutableStateOf(false) }
 
@@ -217,6 +350,47 @@ fun WidgetStudioScreen(
     }
 
     var newPriorityLabel by remember { mutableStateOf("") }
+    var isCheckingUpdates by remember { mutableStateOf(false) }
+    var updateResultDialogData by remember { mutableStateOf<AppUpdateResult?>(null) }
+    var showFeedbackDialog by remember { mutableStateOf(false) }
+    var feedbackInput by remember { mutableStateOf("") }
+    var pendingRestoreJson by remember { mutableStateOf<String?>(null) }
+
+    val createJsonLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                try {
+                    val jsonStr = onExportBackup()
+                    context.contentResolver.openOutputStream(uri)?.use { stream ->
+                        stream.write(jsonStr.toByteArray(Charsets.UTF_8))
+                    }
+                    Toast.makeText(context, "Backup exported successfully!", Toast.LENGTH_LONG).show()
+                } catch (_: Throwable) {
+                    Toast.makeText(context, "Failed to export backup file.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    val openJsonLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                val content = context.contentResolver.openInputStream(uri)?.bufferedReader().use { it?.readText() }
+                if (!content.isNullOrBlank()) {
+                    pendingRestoreJson = content
+                } else {
+                    Toast.makeText(context, "Selected backup file is empty.", Toast.LENGTH_SHORT).show()
+                }
+            } catch (_: Throwable) {
+                Toast.makeText(context, "Failed to read backup file.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     var newPriorityColor by remember { mutableStateOf("#EC4899") }
 
     // Priority Edit & Delete Dialog State
@@ -1324,6 +1498,31 @@ fun WidgetStudioScreen(
                         }
                     }
 
+                    // Text Size Option
+                    Text(
+                        text = "WIDGET TEXT SIZE",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val sizes = listOf("SMALL" to "Small", "MEDIUM" to "Medium", "LARGE" to "Large", "XLARGE" to "X-Large")
+                        sizes.forEach { (key, label) ->
+                            val isSelected = widgetConfig.textSizeScale.equals(key, ignoreCase = true)
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { onUpdateWidgetConfig(widgetConfig.copy(textSizeScale = key)) },
+                                label = { Text(label) }
+                            )
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(14.dp))
 
                     // Show description in widget toggle
@@ -1535,6 +1734,160 @@ fun WidgetStudioScreen(
                             checked = showCounts,
                             onCheckedChange = onSetShowCounts
                         )
+                    }
+                }
+            }
+        }
+
+        // Section: About & App Updates
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("settings_updates_card"),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("About & Updates", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                            Text("Check GitHub releases for the latest app updates & APKs", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                if (!isCheckingUpdates) {
+                                    isCheckingUpdates = true
+                                    scope.launch {
+                                        try {
+                                            val result = fetchLatestGitHubRelease(context)
+                                            if (result.isUpdateAvailable) {
+                                                updateResultDialogData = result
+                                            } else {
+                                                Toast.makeText(
+                                                    context,
+                                                    "ListWidget is up to date (v${result.currentVersion})",
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                            }
+                                        } catch (_: Throwable) {
+                                            Toast.makeText(
+                                                context,
+                                                "Unable to check for updates. Please check network connection.",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        } finally {
+                                            isCheckingUpdates = false
+                                        }
+                                    }
+                                }
+                            },
+                            enabled = !isCheckingUpdates,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("check_updates_button")
+                        ) {
+                            if (isCheckingUpdates) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Checking...", fontSize = 12.sp, maxLines = 1)
+                            } else {
+                                Icon(Icons.Default.SystemUpdate, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Check Updates", fontSize = 12.sp, maxLines = 1)
+                            }
+                        }
+
+                        OutlinedButton(
+                            onClick = { showFeedbackDialog = true },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("send_feedback_button")
+                        ) {
+                            Icon(Icons.Default.Feedback, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Feedback", fontSize = 12.sp, maxLines = 1)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Section: Data Backup & Restore
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("settings_backup_card"),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Data Backup & Restore", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                            Text("Export all lists, items, tags & settings to a JSON file, or restore from a backup", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                val timeStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                                createJsonLauncher.launch("ListWidget_Backup_$timeStr.json")
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("export_backup_button")
+                        ) {
+                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Export (JSON)", fontSize = 12.sp, maxLines = 1)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                openJsonLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("import_backup_button")
+                        ) {
+                            Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Restore (JSON)", fontSize = 12.sp, maxLines = 1)
+                        }
                     }
                 }
             }
@@ -2341,6 +2694,97 @@ fun WidgetStudioScreen(
         )
     }
 
+    // UPDATE RESULT DIALOG
+    if (updateResultDialogData != null) {
+        val info = updateResultDialogData!!
+        AlertDialog(
+            onDismissRequest = { updateResultDialogData = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.SystemUpdate,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("New Version Available!", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Version ${info.latestTag} is available on GitHub! (Installed: v${info.currentVersion})",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                    )
+
+                    if (info.releaseNotes.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = "Release Notes:",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 160.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                                .padding(10.dp)
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            Text(
+                                text = info.releaseNotes,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (!info.apkUrl.isNullOrBlank()) {
+                        Button(
+                            onClick = {
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(info.apkUrl))
+                                    context.startActivity(intent)
+                                } catch (_: Throwable) {
+                                    Toast.makeText(context, "Unable to open download link", Toast.LENGTH_SHORT).show()
+                                }
+                                updateResultDialogData = null
+                            },
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Download APK")
+                        }
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(info.releaseUrl))
+                                context.startActivity(intent)
+                            } catch (_: Throwable) {}
+                            updateResultDialogData = null
+                        },
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("View on GitHub")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { updateResultDialogData = null }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+
     // DELETE PRIORITY CONFIRMATION DIALOG
     priorityToDelete?.let { pri ->
         AlertDialog(
@@ -2391,6 +2835,118 @@ fun WidgetStudioScreen(
             dismissButton = {
                 OutlinedButton(
                     onClick = { categoryToDelete = null },
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // FEEDBACK DIALOG
+    if (showFeedbackDialog) {
+        AlertDialog(
+            onDismissRequest = { showFeedbackDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Feedback,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Send App Feedback", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Share your feature requests, suggestions, or bug reports to help improve ListWidget.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = feedbackInput,
+                        onValueChange = { feedbackInput = it },
+                        placeholder = { Text("Type your feedback here...", fontSize = 13.sp) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 110.dp)
+                            .testTag("feedback_input"),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        sendFeedbackEmail(context, feedbackInput.trim())
+                        showFeedbackDialog = false
+                        feedbackInput = ""
+                    },
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Send Feedback")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showFeedbackDialog = false },
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // RESTORE CONFIRMATION DIALOG
+    if (pendingRestoreJson != null) {
+        AlertDialog(
+            onDismissRequest = { pendingRestoreJson = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.RestorePage,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Restore Backup Data?", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Text(
+                    text = "Restoring from this file will import lists, tasks, notes, custom categories, priority tags, and settings into your app. Do you want to proceed?",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            val success = onRestoreBackup(pendingRestoreJson!!)
+                            if (success) {
+                                Toast.makeText(context, "Backup restored successfully!", Toast.LENGTH_LONG).show()
+                            } else {
+                                Toast.makeText(context, "Failed to restore backup data.", Toast.LENGTH_SHORT).show()
+                            }
+                            pendingRestoreJson = null
+                        }
+                    },
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Restore Backup")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { pendingRestoreJson = null },
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Text("Cancel")

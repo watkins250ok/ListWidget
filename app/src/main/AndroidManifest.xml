@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application
         android:allowBackup="true"
@@ -129,6 +131,11 @@
         <service
             android:name=".widget.SpecificItemRemoteViewsService"
             android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+
+        <!-- Due Date Notification Receiver -->
+        <receiver
+            android:name=".notification.NotificationReceiver"
             android:exported="false" />
     </application>
 

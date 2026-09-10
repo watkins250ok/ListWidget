@@ -24,6 +24,7 @@ data class ListItemEntity(
     val title: String,
     val type: String = "TASK", // "TASK" (checkbox) or "NOTE" (bullet point)
     val category: String = "Task", // "Task", "Idea", "Note", or custom category
+    val section: String = "", // Section name within list e.g. "Work", "Ideas", "General"
     val isChecked: Boolean = false,
     val checkedAt: Long? = null,
     val description: String = "", // rich text with bullet list support

@@ -203,7 +203,8 @@ fun WidgetConfigScreen(
             Surface(
                 tonalElevation = 6.dp,
                 shadowElevation = 8.dp,
-                color = MaterialTheme.colorScheme.surface
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.navigationBarsPadding()
             ) {
                 Row(
                     modifier = Modifier
@@ -438,6 +439,28 @@ fun WidgetConfigScreen(
                                         selected = isSelected,
                                         onClick = { config = config.copy(tagFilter = tag) },
                                         label = { Text("#$tag") }
+                                    )
+                                }
+                            }
+
+                            // Text Size Selector
+                            Text("Text Size", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                val sizeOptions = listOf(
+                                    "SMALL" to "Small",
+                                    "MEDIUM" to "Medium",
+                                    "LARGE" to "Large",
+                                    "XLARGE" to "X-Large"
+                                )
+                                sizeOptions.forEach { (key, label) ->
+                                    val isSelected = config.textSizeScale.equals(key, ignoreCase = true)
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = { config = config.copy(textSizeScale = key) },
+                                        label = { Text(label) }
                                     )
                                 }
                             }

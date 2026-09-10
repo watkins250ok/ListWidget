@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/widget_bg_purple"
-    android:padding="12dp">
+    android:padding="8dp">
 
     <!-- Widget Header -->
     <LinearLayout
@@ -13,7 +13,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingBottom="8dp">
+        android:paddingBottom="4dp">
 
         <TextView
             android:id="@+id/widget_list_title"
@@ -22,19 +22,19 @@
             android:layout_weight="1"
             android:text="To-Do List"
             android:textColor="#FFFFFF"
-            android:textSize="16sp"
+            android:textSize="15sp"
             android:textStyle="bold"
             android:maxLines="1"
             android:ellipsize="end" />
 
         <ImageView
             android:id="@+id/widget_btn_config"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
             android:src="@drawable/ic_widget_settings"
             android:background="@drawable/widget_tag_badge_bg"
-            android:padding="5dp"
-            android:layout_marginEnd="6dp"
+            android:padding="4dp"
+            android:layout_marginEnd="4dp"
             android:contentDescription="Widget Settings" />
 
         <TextView
@@ -43,13 +43,13 @@
             android:layout_height="wrap_content"
             android:text="+ Quick Add"
             android:textColor="#FFFFFF"
-            android:textSize="12sp"
+            android:textSize="11.5sp"
             android:textStyle="bold"
             android:background="@drawable/widget_quick_add_btn_bg"
-            android:paddingLeft="10dp"
-            android:paddingRight="10dp"
-            android:paddingTop="5dp"
-            android:paddingBottom="5dp" />
+            android:paddingLeft="8dp"
+            android:paddingRight="8dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp" />
     </LinearLayout>
 
     <!-- Items List View -->
@@ -59,7 +59,7 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:divider="@android:color/transparent"
-        android:dividerHeight="6dp"
+        android:dividerHeight="3dp"
         android:scrollbars="vertical" />
 
     <!-- Empty State -->
@@ -71,7 +71,7 @@
         android:gravity="center"
         android:text="No items in this list.\nTap + Quick Add to create one."
         android:textColor="#B3FFFFFF"
-        android:textSize="14sp"
+        android:textSize="13sp"
         android:visibility="gone" />
 
 </LinearLayout>
