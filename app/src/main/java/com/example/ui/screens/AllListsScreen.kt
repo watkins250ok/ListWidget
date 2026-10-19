@@ -1,8 +1,10 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,29 +20,28 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -48,24 +49,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import com.example.data.model.CategoryOption
 import com.example.data.model.ListEntity
 import com.example.data.model.ListItemEntity
 import com.example.ui.components.getVectorForCategory
 import com.example.ui.components.getVectorForIconName
-import com.example.ui.theme.BentoPrimaryContainer
-import com.example.ui.theme.BentoPrimaryPurple
 import com.example.ui.theme.PrimaryPurple
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -77,6 +77,7 @@ fun AllListsScreen(
     onListClick: (Long) -> Unit,
     onCreateListClick: () -> Unit,
     onEditListClick: (ListEntity) -> Unit,
+    onReorderLists: (List<Long>) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var searchKeyword by remember { mutableStateOf("") }
@@ -88,6 +89,16 @@ fun AllListsScreen(
         }
     }
 
+    var displayLists by remember { mutableStateOf(filteredLists) }
+    LaunchedEffect(filteredLists) {
+        displayLists = filteredLists
+    }
+
+    // Outer-container drag-and-drop state
+    var activeDragId by remember { mutableStateOf<Long?>(null) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    val cardBounds = remember { mutableMapOf<Long, Pair<Float, Float>>() }
+
     // Category counts across all items
     val categoryCounts = remember(allItems, categories) {
         val grouped = allItems.groupBy { it.effectiveCategory }
@@ -96,7 +107,74 @@ fun AllListsScreen(
         }
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = { startOffset ->
+                        val touchY = startOffset.y
+                        val draggedList = displayLists.find { list ->
+                            val bounds = cardBounds[list.id]
+                            bounds != null && touchY >= bounds.first && touchY <= bounds.second
+                        }
+                        if (draggedList != null) {
+                            activeDragId = draggedList.id
+                            dragOffsetY = 0f
+                        }
+                    },
+                    onDrag = { change, dragAmount ->
+                        val currentId = activeDragId ?: return@detectDragGestures
+                        change.consume()
+                        dragOffsetY += dragAmount.y
+
+                        val currIndex = displayLists.indexOfFirst { it.id == currentId }
+                        if (currIndex != -1) {
+                            val currBounds = cardBounds[currentId]
+                            if (currBounds != null) {
+                                val currentCenterY = (currBounds.first + currBounds.second) / 2f + dragOffsetY
+
+                                // Check swap with next item (downward)
+                                if (currIndex < displayLists.lastIndex) {
+                                    val nextId = displayLists[currIndex + 1].id
+                                    val nextBounds = cardBounds[nextId]
+                                    if (nextBounds != null && currentCenterY > (nextBounds.first + nextBounds.second) / 2f) {
+                                        val mutable = displayLists.toMutableList()
+                                        val item = mutable.removeAt(currIndex)
+                                        mutable.add(currIndex + 1, item)
+                                        displayLists = mutable
+                                        dragOffsetY -= (nextBounds.second - nextBounds.first)
+                                    }
+                                }
+
+                                // Check swap with previous item (upward)
+                                if (currIndex > 0) {
+                                    val prevId = displayLists[currIndex - 1].id
+                                    val prevBounds = cardBounds[prevId]
+                                    if (prevBounds != null && currentCenterY < (prevBounds.first + prevBounds.second) / 2f) {
+                                        val mutable = displayLists.toMutableList()
+                                        val item = mutable.removeAt(currIndex)
+                                        mutable.add(currIndex - 1, item)
+                                        displayLists = mutable
+                                        dragOffsetY += (prevBounds.second - prevBounds.first)
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    onDragEnd = {
+                        activeDragId = null
+                        dragOffsetY = 0f
+                        onReorderLists(displayLists.map { it.id })
+                    },
+                    onDragCancel = {
+                        activeDragId = null
+                        dragOffsetY = 0f
+                        onReorderLists(displayLists.map { it.id })
+                    }
+                )
+            }
+    ) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -129,24 +207,24 @@ fun AllListsScreen(
                         .testTag("search_lists_input"),
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.55f),
                         focusedBorderColor = MaterialTheme.colorScheme.primary
                     ),
                     singleLine = true
                 )
             }
 
-            // Total number of items for each category (if the user has that option toggled on)
+            // Total number of items for each category
             if (showCounts) {
                 item {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(16.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .border(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
                             .padding(horizontal = 14.dp, vertical = 10.dp)
                     ) {
                         Text(
@@ -173,7 +251,7 @@ fun AllListsScreen(
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
                                     color = MaterialTheme.colorScheme.surface,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
@@ -209,30 +287,47 @@ fun AllListsScreen(
                 }
             }
 
-            // List of lists
-            if (filteredLists.isEmpty()) {
+            // List of lists with Drag and Drop Reordering
+            if (displayLists.isEmpty()) {
                 item {
                     EmptyListsPlaceholder(onCreateListClick)
                 }
             } else {
-                items(filteredLists, key = { it.id }) { listEntity ->
+                itemsIndexed(displayLists, key = { _, listEntity -> listEntity.id }) { index, listEntity ->
                     val itemsForList = allItems.filter { it.listId == listEntity.id }
-                    val tasks = itemsForList.filter { it.effectiveCategory == "Task" || it.type == "TASK" }
-                    val doneTasks = tasks.count { it.isChecked }
+                    val sectionsCount = remember(itemsForList) {
+                        if (itemsForList.isEmpty()) 0
+                        else itemsForList.map { if (it.section.isNotBlank()) it.section.trim() else "General" }.distinct().size
+                    }
                     val listCategoryCounts = remember(itemsForList, categories) {
                         val grouped = itemsForList.groupBy { it.effectiveCategory }
                         categories.map { cat -> cat to (grouped[cat.name]?.size ?: 0) }
                     }
 
+                    val isDragging = activeDragId == listEntity.id
+
                     ListOverviewCard(
                         list = listEntity,
                         totalItems = itemsForList.size,
-                        tasksCount = tasks.size,
-                        completedTasksCount = doneTasks,
+                        sectionsCount = sectionsCount,
                         categoryCounts = listCategoryCounts,
                         showCounts = showCounts,
                         onClick = { onListClick(listEntity.id) },
-                        onEditClick = { onEditListClick(listEntity) }
+                        onEditClick = { onEditListClick(listEntity) },
+                        modifier = Modifier
+                            .onGloballyPositioned { coordinates ->
+                                val parent = coordinates.parentLayoutCoordinates
+                                if (parent != null) {
+                                    val top = coordinates.positionInParent().y
+                                    val height = coordinates.size.height.toFloat()
+                                    cardBounds[listEntity.id] = Pair(top, top + height)
+                                }
+                            }
+                            .zIndex(if (isDragging) 3f else 1f)
+                            .graphicsLayer {
+                                translationY = if (isDragging) dragOffsetY else 0f
+                                shadowElevation = if (isDragging) 12.dp.toPx() else 0f
+                            }
                     )
                 }
             }
@@ -266,12 +361,12 @@ fun AllListsScreen(
 private fun ListOverviewCard(
     list: ListEntity,
     totalItems: Int,
-    tasksCount: Int,
-    completedTasksCount: Int,
+    sectionsCount: Int,
     categoryCounts: List<Pair<CategoryOption, Int>>,
     showCounts: Boolean,
     onClick: () -> Unit,
-    onEditClick: () -> Unit
+    onEditClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val listColor = remember(list.colorHex) {
         try {
@@ -280,30 +375,27 @@ private fun ListOverviewCard(
             PrimaryPurple
         }
     }
-    val updatedDateStr = remember(list.updatedAt) {
-        SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(list.updatedAt))
-    }
 
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
             .clickable { onClick() }
             .testTag("list_card_${list.id}"),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f))
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(18.dp)
         ) {
-            // Top Row: Icon + Name + Edit button + Arrow
+            // Top Row: Icon + Name + Description + Drag Handle + Edit Pencil Button
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
                 // List Icon Box
                 Box(
@@ -341,55 +433,82 @@ private fun ListOverviewCard(
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        )
                     )
                     if (!list.description.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = list.description,
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            )
                         )
                     }
                 }
 
-                IconButton(
-                    onClick = onEditClick,
-                    modifier = Modifier.size(36.dp)
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit List",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
+                        imageVector = Icons.Default.DragHandle,
+                        contentDescription = "Drag to reorder",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.size(20.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    IconButton(
+                        onClick = onEditClick,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit List",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Number of items in list & Number of sections in list
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = listColor.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, listColor.copy(alpha = 0.25f))
+                ) {
+                    Text(
+                        text = "$totalItems ${if (totalItems == 1) "item" else "items"}",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = listColor
+                        ),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
 
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = "Open",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                )
-            }
-
-            // Progress bar (if tasks present)
-            if (tasksCount > 0) {
-                Spacer(modifier = Modifier.height(12.dp))
-                val progress = completedTasksCount.toFloat() / tasksCount.toFloat()
-                LinearProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(5.dp)
-                        .clip(CircleShape),
-                    color = listColor,
-                    trackColor = listColor.copy(alpha = 0.15f)
-                )
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                ) {
+                    Text(
+                        text = "$sectionsCount ${if (sectionsCount == 1) "section" else "sections"}",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
             }
 
             // Category counts per list (if showCounts toggled on)
@@ -432,28 +551,8 @@ private fun ListOverviewCard(
                             }
                         }
                     }
-                    if (categoryCounts.none { it.second > 0 }) {
-                        Text(
-                            text = "0 items",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                            )
-                        )
-                    }
                 }
             }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Updated timestamp
-            Text(
-                text = "Updated $updatedDateStr",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                )
-            )
         }
     }
 }
@@ -466,44 +565,14 @@ private fun EmptyListsPlaceholder(onCreateClick: () -> Unit) {
             .padding(vertical = 40.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(
-            modifier = Modifier
-                .size(72.dp)
-                .clip(CircleShape)
-                .background(BentoPrimaryContainer),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Layers,
-                contentDescription = null,
-                tint = BentoPrimaryPurple,
-                modifier = Modifier.size(36.dp)
-            )
-        }
-        Spacer(modifier = Modifier.height(14.dp))
         Text(
-            text = "No lists yet",
+            text = "No lists created yet",
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
         )
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "Create your first list to start organizing items.",
+            text = "Tap + New List below to create your first list",
             style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
         )
-        Spacer(modifier = Modifier.height(16.dp))
-        Surface(
-            onClick = onCreateClick,
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.primary
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(imageVector = Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Create List", color = Color.White, fontWeight = FontWeight.Bold)
-            }
-        }
     }
 }

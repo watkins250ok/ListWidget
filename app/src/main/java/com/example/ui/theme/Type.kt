@@ -9,11 +9,9 @@ import com.example.data.model.AppFontFamily
 
 fun getTypographyForFont(fontFamilyChoice: AppFontFamily): Typography {
     val family = when (fontFamilyChoice) {
-        AppFontFamily.SYSTEM -> FontFamily.Default
         AppFontFamily.CLEAN_SANS -> FontFamily.SansSerif
         AppFontFamily.SERIF -> FontFamily.Serif
         AppFontFamily.MONOSPACE -> FontFamily.Monospace
-        AppFontFamily.ROUNDED -> FontFamily.SansSerif
     }
 
     return Typography(

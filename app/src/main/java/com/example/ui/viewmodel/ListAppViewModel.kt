@@ -15,6 +15,7 @@ import com.example.data.model.PriorityOption
 import com.example.data.model.WidgetStyleConfig
 import com.example.data.model.WidgetType
 import com.example.data.repository.ListRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -73,6 +74,7 @@ class ListAppViewModel(application: Application) : AndroidViewModel(application)
     val activeWidgetId: StateFlow<String> = repository.activeWidgetId
     val priorities: StateFlow<List<PriorityOption>> = repository.priorities
     val categories: StateFlow<List<CategoryOption>> = repository.categories
+    val itemTags: StateFlow<List<String>> = repository.itemTags
 
     // Navigation and screen state
     private val _currentTab = MutableStateFlow(AppNavTab.ALL_LISTS)
@@ -82,6 +84,9 @@ class ListAppViewModel(application: Application) : AndroidViewModel(application)
     val selectedListId: StateFlow<Long?> = _selectedListId.asStateFlow()
 
     // Dialogs state
+    private val _activeItemForPreview = MutableStateFlow<ListItemEntity?>(null)
+    val activeItemForPreview: StateFlow<ListItemEntity?> = _activeItemForPreview.asStateFlow()
+
     private val _activeItemForPopup = MutableStateFlow<ListItemEntity?>(null)
     val activeItemForPopup: StateFlow<ListItemEntity?> = _activeItemForPopup.asStateFlow()
 
@@ -123,17 +128,15 @@ class ListAppViewModel(application: Application) : AndroidViewModel(application)
     val gallerySortOption: StateFlow<GallerySortOption> = _gallerySortOption.asStateFlow()
 
     init {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val db = AppDatabase.getDatabase(application)
-            val lists = db.listDao().getAllLists().firstOrNull()
-            if (lists.isNullOrEmpty()) {
-                SampleDataProvider.populateIfEmpty(db, application)
-            }
+            SampleDataProvider.populateData(db, application, forceReset = false)
             repository.runAutoDeleteSweep()
         }
     }
 
     fun selectTab(tab: AppNavTab) {
+        _selectedListId.value = null
         _currentTab.value = tab
     }
 
@@ -141,8 +144,29 @@ class ListAppViewModel(application: Application) : AndroidViewModel(application)
         _selectedListId.value = listId
     }
 
+    fun reorderLists(newOrderIds: List<Long>) {
+        repository.reorderLists(newOrderIds)
+    }
+
+    fun reorderItems(newOrderIds: List<Long>) {
+        repository.reorderItems(newOrderIds)
+    }
+
     fun closeListDetail() {
         _selectedListId.value = null
+    }
+
+    fun openItemPreview(item: ListItemEntity) {
+        _activeItemForPreview.value = item
+    }
+
+    fun closeItemPreview() {
+        _activeItemForPreview.value = null
+    }
+
+    fun editItemFromPreview(item: ListItemEntity) {
+        _activeItemForPreview.value = null
+        _activeItemForPopup.value = item
     }
 
     fun openItemPopup(item: ListItemEntity) {
@@ -303,6 +327,22 @@ class ListAppViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    // Section operations
+    fun loadListSectionOrder(listId: Long): List<String> = repository.loadListSectionOrder(listId)
+    fun saveListSectionOrder(listId: Long, sections: List<String>) = repository.saveListSectionOrder(listId, sections)
+
+    fun renameSectionInList(listId: Long, oldSection: String, newSection: String) {
+        viewModelScope.launch {
+            repository.renameSectionInList(listId, oldSection, newSection)
+        }
+    }
+
+    fun updateItemSection(itemId: Long, newSection: String) {
+        viewModelScope.launch {
+            repository.updateItemSection(itemId, newSection)
+        }
+    }
+
     // Theme & Settings operations
     fun setThemeMode(mode: AppThemeMode) = repository.setThemeMode(mode)
     fun setColorPalette(palette: ColorPalettePreset) = repository.setColorPalette(palette)
@@ -329,4 +369,17 @@ class ListAppViewModel(application: Application) : AndroidViewModel(application)
     fun updatePriority(id: String, newLabel: String, newColorHex: String) = repository.updatePriority(id, newLabel, newColorHex)
     fun deletePriority(id: String) = repository.deletePriority(id)
     fun resetPriorities() = repository.resetPriorities()
+
+    // Tag operations
+    fun addCustomTag(tag: String) = repository.addCustomTag(tag)
+    fun updateTagAppWide(oldTag: String, newTag: String) {
+        viewModelScope.launch {
+            repository.updateTagAppWide(oldTag, newTag)
+        }
+    }
+    fun deleteCustomTag(tag: String) {
+        viewModelScope.launch {
+            repository.deleteCustomTagAppWide(tag)
+        }
+    }
 }

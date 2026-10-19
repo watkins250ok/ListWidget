@@ -27,11 +27,9 @@ enum class ColorPalettePreset(val label: String, val primaryHex: String, val sec
 }
 
 enum class AppFontFamily(val label: String) {
-    SYSTEM("System Default"),
     CLEAN_SANS("Clean Sans"),
     SERIF("Classic Serif"),
-    MONOSPACE("Developer Mono"),
-    ROUNDED("Friendly Rounded")
+    MONOSPACE("Monospace")
 }
 
 data class WidgetStyleConfig(
@@ -49,4 +47,3 @@ data class WidgetStyleConfig(
     val hideChecked: Boolean = false,
     val textSizeScale: String = "MEDIUM" // "SMALL", "MEDIUM", "LARGE", "XLARGE"
 )
-

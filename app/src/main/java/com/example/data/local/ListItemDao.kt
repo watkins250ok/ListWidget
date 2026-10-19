@@ -44,6 +44,9 @@ interface ListItemDao {
     @Query("DELETE FROM list_items WHERE id = :id")
     suspend fun deleteItemById(id: Long)
 
+    @Query("DELETE FROM list_items")
+    suspend fun deleteAllItems()
+
     @Query("DELETE FROM list_items WHERE listId = :listId AND isChecked = 1")
     suspend fun deleteCheckedItemsInList(listId: Long)
 

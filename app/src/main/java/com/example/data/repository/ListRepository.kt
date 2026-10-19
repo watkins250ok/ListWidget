@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -35,8 +36,86 @@ class ListRepository(
     private val itemDao = database.listItemDao()
     private val prefs: SharedPreferences = context.getSharedPreferences("list_widget_prefs", Context.MODE_PRIVATE)
 
-    val allLists: Flow<List<ListEntity>> = listDao.getAllLists()
-    val allItems: Flow<List<ListItemEntity>> = itemDao.getAllItems()
+    private fun loadCustomListOrder(): List<Long> {
+        val savedJson = prefs.getString("custom_list_order_json", null) ?: return emptyList()
+        return try {
+            val array = JSONArray(savedJson)
+            val list = mutableListOf<Long>()
+            for (i in 0 until array.length()) {
+                list.add(array.getLong(i))
+            }
+            list
+        } catch (_: Exception) { emptyList() }
+    }
+
+    private fun saveCustomListOrder(orderIds: List<Long>) {
+        val array = JSONArray()
+        orderIds.forEach { array.put(it) }
+        prefs.edit().putString("custom_list_order_json", array.toString()).apply()
+        _customListOrder.value = orderIds
+    }
+
+    private val _customListOrder = MutableStateFlow(loadCustomListOrder())
+
+    val allLists: Flow<List<ListEntity>> = combine(listDao.getAllLists(), _customListOrder) { dbLists, orderIds ->
+        if (orderIds.isEmpty()) {
+            dbLists
+        } else {
+            val orderMap = orderIds.withIndex().associate { it.value to it.index }
+            dbLists.sortedWith(Comparator { a, b ->
+                val orderA = orderMap[a.id] ?: Int.MAX_VALUE
+                val orderB = orderMap[b.id] ?: Int.MAX_VALUE
+                if (orderA != orderB) orderA.compareTo(orderB)
+                else b.updatedAt.compareTo(a.updatedAt)
+            })
+        }
+    }
+
+    fun reorderLists(newOrderIds: List<Long>) {
+        saveCustomListOrder(newOrderIds)
+    }
+
+    private fun loadCustomItemOrder(): List<Long> {
+        val savedJson = prefs.getString("custom_item_order_json", null) ?: return emptyList()
+        return try {
+            val array = JSONArray(savedJson)
+            val list = mutableListOf<Long>()
+            for (i in 0 until array.length()) {
+                list.add(array.getLong(i))
+            }
+            list
+        } catch (_: Exception) { emptyList() }
+    }
+
+    private fun saveCustomItemOrder(orderIds: List<Long>) {
+        val array = JSONArray()
+        orderIds.forEach { array.put(it) }
+        prefs.edit().putString("custom_item_order_json", array.toString()).apply()
+        _customItemOrder.value = orderIds
+    }
+
+    private val _customItemOrder = MutableStateFlow(loadCustomItemOrder())
+
+    val allItems: Flow<List<ListItemEntity>> = combine(itemDao.getAllItems(), _customItemOrder) { dbItems, orderIds ->
+        if (orderIds.isEmpty()) {
+            dbItems
+        } else {
+            val orderMap = orderIds.withIndex().associate { it.value to it.index }
+            dbItems.sortedWith(Comparator { a, b ->
+                val orderA = orderMap[a.id] ?: Int.MAX_VALUE
+                val orderB = orderMap[b.id] ?: Int.MAX_VALUE
+                if (orderA != orderB) orderA.compareTo(orderB)
+                else b.createdAt.compareTo(a.createdAt)
+            })
+        }
+    }
+
+    fun reorderItems(newOrderIds: List<Long>) {
+        val currentOrder = _customItemOrder.value.toMutableList()
+        newOrderIds.forEach { id -> currentOrder.remove(id) }
+        val updatedOrder = newOrderIds + currentOrder
+        saveCustomItemOrder(updatedOrder)
+    }
     val itemsWithImages: Flow<List<ListItemEntity>> = itemDao.getItemsWithImages()
 
     // Settings state
@@ -64,6 +143,8 @@ class ListRepository(
     private val _showCounts = MutableStateFlow(prefs.getBoolean("show_counts", true))
     val showCounts: StateFlow<Boolean> = _showCounts.asStateFlow()
 
+    private val FORBIDDEN_CATEGORIES = setOf("places to go", "further research", "tech", "check this out")
+
     // Categories state (Default: Task, Idea, Note + user created)
     private val _categories = MutableStateFlow(loadCategories())
     val categories: StateFlow<List<CategoryOption>> = _categories.asStateFlow()
@@ -76,15 +157,18 @@ class ListRepository(
                 val list = mutableListOf<CategoryOption>()
                 for (i in 0 until jsonArray.length()) {
                     val obj = jsonArray.getJSONObject(i)
-                    list.add(
-                        CategoryOption(
-                            id = obj.optString("id", obj.optString("name", "")),
-                            name = obj.getString("name"),
-                            iconKey = obj.optString("iconKey", "tag"),
-                            colorHex = obj.optString("colorHex", "#0284C7"),
-                            isDefault = obj.optBoolean("isDefault", false)
+                    val catName = obj.getString("name")
+                    if (!FORBIDDEN_CATEGORIES.contains(catName.trim().lowercase())) {
+                        list.add(
+                            CategoryOption(
+                                id = obj.optString("id", catName),
+                                name = catName,
+                                iconKey = obj.optString("iconKey", "tag"),
+                                colorHex = obj.optString("colorHex", "#0284C7"),
+                                isDefault = obj.optBoolean("isDefault", false)
+                            )
                         )
-                    )
+                    }
                 }
                 if (list.isNotEmpty()) return list
             } catch (_: Exception) {}
@@ -92,10 +176,11 @@ class ListRepository(
 
         // Check legacy categories migration
         val savedLegacy = prefs.getStringSet("custom_categories", null)
-        val defaultList = CategoryOption.DEFAULT_CATEGORIES.toMutableList()
+        val defaultList = CategoryOption.DEFAULT_CATEGORIES.filterNot { FORBIDDEN_CATEGORIES.contains(it.name.trim().lowercase()) }.toMutableList()
         if (savedLegacy != null) {
             savedLegacy.forEach { legacyName ->
-                if (defaultList.none { it.name.equals(legacyName, ignoreCase = true) }) {
+                if (!FORBIDDEN_CATEGORIES.contains(legacyName.trim().lowercase()) &&
+                    defaultList.none { it.name.equals(legacyName, ignoreCase = true) }) {
                     defaultList.add(
                         CategoryOption(
                             id = "CAT_" + legacyName.replace(" ", "_"),
@@ -252,13 +337,18 @@ class ListRepository(
             val list = mutableListOf<PriorityOption>()
             for (i in 0 until jsonArray.length()) {
                 val obj = jsonArray.getJSONObject(i)
-                list.add(
-                    PriorityOption(
-                        id = obj.getString("id"),
-                        label = obj.getString("label"),
-                        colorHex = obj.getString("colorHex")
-                    )
-                )
+                var id = obj.getString("id")
+                var label = obj.getString("label")
+                val colorHex = obj.getString("colorHex")
+
+                when (label.trim().uppercase()) {
+                    "LP/LE" -> { label = "None"; if (id == "LP/LE") id = "NONE" }
+                    "LP/HE" -> { label = "Low"; if (id == "LP/HE") id = "LOW" }
+                    "HP/LE" -> { label = "Medium"; if (id == "HP/LE") id = "MEDIUM" }
+                    "HP/HE" -> { label = "High"; if (id == "HP/HE") id = "HIGH" }
+                }
+
+                list.add(PriorityOption(id, label, colorHex))
             }
             if (list.isEmpty()) PriorityOption.DEFAULT_PRIORITIES else list
         } catch (_: Exception) {
@@ -279,6 +369,110 @@ class ListRepository(
         _priorities.value = list
     }
 
+    // Editable Item Tags (#idea, #home, #work + Custom)
+    private val DEFAULT_ITEM_TAGS = listOf("#idea", "#home", "#work")
+
+    private fun loadItemTags(): List<String> {
+        val savedJson = prefs.getString("custom_item_tags_json", null)
+        val tagsSet = LinkedHashSet<String>()
+        DEFAULT_ITEM_TAGS.forEach { tagsSet.add(it) }
+        if (!savedJson.isNullOrBlank()) {
+            try {
+                val array = JSONArray(savedJson)
+                for (i in 0 until array.length()) {
+                    val rawTag = array.getString(i).replace("#", "").trim().lowercase()
+                    if (rawTag.isNotBlank()) {
+                        tagsSet.add("#$rawTag")
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+        return tagsSet.toList()
+    }
+
+    private val _itemTags = MutableStateFlow(loadItemTags())
+    val itemTags: StateFlow<List<String>> = _itemTags.asStateFlow()
+
+    private fun saveItemTags(tags: List<String>) {
+        val array = JSONArray()
+        val cleaned = tags.map { it.replace("#", "").trim().lowercase() }.filter { it.isNotBlank() }.distinct()
+        cleaned.forEach { array.put("#$it") }
+        prefs.edit().putString("custom_item_tags_json", array.toString()).apply()
+        _itemTags.value = cleaned.map { "#$it" }
+    }
+
+    fun addCustomTag(tag: String): String {
+        val clean = tag.replace("#", "").trim().lowercase()
+        if (clean.isBlank()) return ""
+        val formatted = "#$clean"
+        val current = _itemTags.value.toMutableList()
+        if (current.none { it.equals(formatted, ignoreCase = true) }) {
+            current.add(formatted)
+            saveItemTags(current)
+        }
+        return formatted
+    }
+
+    suspend fun updateTagAppWide(oldTag: String, newTag: String) = withContext(Dispatchers.IO) {
+        val oldClean = oldTag.replace("#", "").trim().lowercase()
+        val newClean = newTag.replace("#", "").trim().lowercase()
+        val oldFormatted = if (oldClean.isBlank()) "" else "#$oldClean"
+        val newFormatted = if (newClean.isBlank()) "" else "#$newClean"
+
+        if (oldClean.isBlank()) return@withContext
+
+        val currentTags = _itemTags.value.toMutableList()
+        val index = currentTags.indexOfFirst { it.replace("#", "").trim().equals(oldClean, ignoreCase = true) }
+        if (index != -1) {
+            if (newClean.isNotBlank()) {
+                currentTags[index] = newFormatted
+            } else {
+                currentTags.removeAt(index)
+            }
+        } else if (newClean.isNotBlank()) {
+            currentTags.add(newFormatted)
+        }
+        saveItemTags(currentTags)
+
+        if (oldClean.isNotBlank() && newClean != oldClean) {
+            val items = itemDao.getAllItemsSync()
+            items.forEach { item ->
+                if (item.tags.isNotBlank()) {
+                    val tagList = item.tags.split(",", ";").map { it.trim() }
+                    if (tagList.any { it.equals(oldClean, ignoreCase = true) }) {
+                        val updatedTags = tagList.map {
+                            if (it.equals(oldClean, ignoreCase = true)) newClean else it
+                        }.filter { it.isNotBlank() }.distinct().joinToString(",")
+                        itemDao.updateItem(item.copy(tags = updatedTags, updatedAt = System.currentTimeMillis()))
+                    }
+                }
+            }
+            triggerWidgetUpdate()
+        }
+    }
+
+    suspend fun deleteCustomTagAppWide(tag: String) = withContext(Dispatchers.IO) {
+        val clean = tag.replace("#", "").trim().lowercase()
+        val formatted = if (clean.isBlank()) "" else "#$clean"
+
+        val currentTags = _itemTags.value.filterNot { it.replace("#", "").trim().equals(clean, ignoreCase = true) }
+        saveItemTags(currentTags)
+
+        if (clean.isNotBlank()) {
+            val items = itemDao.getAllItemsSync()
+            items.forEach { item ->
+                if (item.tags.isNotBlank()) {
+                    val tagList = item.tags.split(",", ";").map { it.trim() }
+                    if (tagList.any { it.equals(clean, ignoreCase = true) }) {
+                        val updatedTags = tagList.filterNot { it.equals(clean, ignoreCase = true) }.joinToString(",")
+                        itemDao.updateItem(item.copy(tags = updatedTags, updatedAt = System.currentTimeMillis()))
+                    }
+                }
+            }
+            triggerWidgetUpdate()
+        }
+    }
+
     fun getItemsForList(listId: Long): Flow<List<ListItemEntity>> {
         return itemDao.getItemsForList(listId)
     }
@@ -291,6 +485,58 @@ class ListRepository(
 
     suspend fun getItemById(id: Long): ListItemEntity? = withContext(Dispatchers.IO) {
         itemDao.getItemById(id)
+    }
+
+    // Section Operations per List
+    fun loadListSectionOrder(listId: Long): List<String> {
+        val savedJson = prefs.getString("list_section_order_${listId}_json", null) ?: return emptyList()
+        return try {
+            val array = JSONArray(savedJson)
+            val list = mutableListOf<String>()
+            for (i in 0 until array.length()) {
+                val sec = array.getString(i).trim()
+                if (sec.isNotBlank()) list.add(sec)
+            }
+            list
+        } catch (_: Exception) { emptyList() }
+    }
+
+    fun saveListSectionOrder(listId: Long, sections: List<String>) {
+        val array = JSONArray()
+        val cleaned = sections.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+        cleaned.forEach { array.put(it) }
+        prefs.edit().putString("list_section_order_${listId}_json", array.toString()).apply()
+    }
+
+    suspend fun renameSectionInList(listId: Long, oldSectionName: String, newSectionName: String) = withContext(Dispatchers.IO) {
+        val oldClean = oldSectionName.trim()
+        val newClean = newSectionName.trim()
+        if (oldClean.isBlank() || newClean.isBlank() || oldClean.equals(newClean, ignoreCase = true)) return@withContext
+
+        val items = itemDao.getItemsForListSync(listId)
+        items.forEach { item ->
+            val sec = if (item.section.isBlank()) "General" else item.section.trim()
+            if (sec.equals(oldClean, ignoreCase = true)) {
+                itemDao.updateItem(item.copy(section = newClean, updatedAt = System.currentTimeMillis()))
+            }
+        }
+
+        val order = loadListSectionOrder(listId).toMutableList()
+        val index = order.indexOfFirst { it.equals(oldClean, ignoreCase = true) }
+        if (index != -1) {
+            order[index] = newClean
+            saveListSectionOrder(listId, order)
+        }
+        triggerWidgetUpdate()
+    }
+
+    suspend fun updateItemSection(itemId: Long, newSectionName: String) = withContext(Dispatchers.IO) {
+        val item = itemDao.getItemById(itemId) ?: return@withContext
+        val cleanSec = newSectionName.trim()
+        if (!item.section.equals(cleanSec, ignoreCase = true)) {
+            itemDao.updateItem(item.copy(section = cleanSec, updatedAt = System.currentTimeMillis()))
+            triggerWidgetUpdate()
+        }
     }
 
     suspend fun insertList(list: ListEntity): Long = withContext(Dispatchers.IO) {
@@ -501,9 +747,7 @@ class ListRepository(
 
     fun deleteCategory(id: String) {
         val current = _categories.value
-        val target = current.find { it.id == id || it.name == id }
-        if (target != null && target.isDefault) return // Protect default categories from complete deletion
-        val updated = current.filterNot { it.id == id || it.name == id }
+        val updated = current.filterNot { it.id == id || it.name.equals(id, ignoreCase = true) }
         saveCategories(updated)
     }
 
@@ -721,14 +965,14 @@ class ListRepository(
 
     fun updatePriority(id: String, newLabel: String, newColorHex: String) {
         val current = _priorities.value.map { p ->
-            if (p.id == id) p.copy(label = newLabel.trim(), colorHex = newColorHex)
+            if (p.id == id || p.label.equals(id, ignoreCase = true)) p.copy(label = newLabel.trim().ifBlank { p.label }, colorHex = newColorHex)
             else p
         }
         savePriorities(current)
     }
 
     fun deletePriority(id: String) {
-        val current = _priorities.value.filter { it.id != id }
+        val current = _priorities.value.filterNot { it.id == id || it.label.equals(id, ignoreCase = true) }
         savePriorities(current)
     }
 

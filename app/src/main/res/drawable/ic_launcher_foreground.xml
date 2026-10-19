@@ -4,14 +4,6 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Purple circle background inside safe area -->
-    <path
-        android:pathData="M54,21 A33,33 0 1,0 54,87 A33,33 0 1,0 54,21 Z"
-        android:fillColor="#8B5CF6" />
-    <path
-        android:pathData="M54,23 A31,31 0 1,0 54,85 A31,31 0 1,0 54,23 Z"
-        android:fillColor="#7C3AED" />
-
     <!-- Row 1 (y ≈ 38): Checkbox + Equal-sized solid line -->
     <!-- Checkbox square -->
     <path

@@ -20,8 +20,4 @@
             </gradient>
         </aapt:attr>
     </path>
-    <!-- Subtle glow circle -->
-    <path
-        android:pathData="M54,18 A36,36 0 1,0 54,90 A36,36 0 1,0 54,18"
-        android:fillColor="#15FFFFFF" />
 </vector>

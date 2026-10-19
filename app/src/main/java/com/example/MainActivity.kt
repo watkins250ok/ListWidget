@@ -49,6 +49,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.ListItemEntity
 import com.example.ui.components.CreateListDialog
 import com.example.ui.components.ItemPopupDialog
+import com.example.ui.components.ItemPreviewDialog
 import com.example.ui.screens.AllItemsScreen
 import com.example.ui.screens.AllListsScreen
 import com.example.ui.screens.GalleryScreen
@@ -114,6 +115,7 @@ fun MainAppScreen(viewModel: ListAppViewModel) {
     val currentTab by viewModel.currentTab.collectAsStateWithLifecycle()
     val selectedListId by viewModel.selectedListId.collectAsStateWithLifecycle()
 
+    val activeItemForPreview by viewModel.activeItemForPreview.collectAsStateWithLifecycle()
     val activeItemForPopup by viewModel.activeItemForPopup.collectAsStateWithLifecycle()
     val showNewItemPopup by viewModel.showNewItemPopup.collectAsStateWithLifecycle()
     val activeListForEdit by viewModel.activeListForEdit.collectAsStateWithLifecycle()
@@ -137,6 +139,7 @@ fun MainAppScreen(viewModel: ListAppViewModel) {
     val fontFamily by viewModel.fontFamily.collectAsStateWithLifecycle()
     val priorities by viewModel.priorities.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
+    val itemTags by viewModel.itemTags.collectAsStateWithLifecycle()
 
     val selectedList = remember(allLists, selectedListId) {
         allLists.find { it.id == selectedListId }
@@ -173,60 +176,58 @@ fun MainAppScreen(viewModel: ListAppViewModel) {
             }
         },
         bottomBar = {
-            if (selectedList == null) {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-                    tonalElevation = 0.dp,
-                    windowInsets = NavigationBarDefaults.windowInsets,
-                    modifier = Modifier
-                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
-                        .testTag("bottom_nav_bar"),
-                ) {
-                    NavigationBarItem(
-                        selected = currentTab == AppNavTab.ALL_LISTS,
-                        onClick = { viewModel.selectTab(AppNavTab.ALL_LISTS) },
-                        icon = { Icon(Icons.Default.Layers, contentDescription = "Lists") },
-                        label = { Text("Lists", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
-                    )
-                    NavigationBarItem(
-                        selected = currentTab == AppNavTab.ALL_ITEMS,
-                        onClick = { viewModel.selectTab(AppNavTab.ALL_ITEMS) },
-                        icon = { Icon(Icons.AutoMirrored.Filled.FormatListBulleted, contentDescription = "All Items") },
-                        label = { Text("Items", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
-                    )
-                    NavigationBarItem(
-                        selected = currentTab == AppNavTab.GALLERY,
-                        onClick = { viewModel.selectTab(AppNavTab.GALLERY) },
-                        icon = { Icon(Icons.Default.PhotoLibrary, contentDescription = "Gallery") },
-                        label = { Text("Gallery", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
-                    )
-                    NavigationBarItem(
-                        selected = currentTab == AppNavTab.SETTINGS,
-                        onClick = { viewModel.selectTab(AppNavTab.SETTINGS) },
-                        icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                        label = { Text("Settings", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
-                    )
-                }
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                tonalElevation = 0.dp,
+                windowInsets = NavigationBarDefaults.windowInsets,
+                modifier = Modifier
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                    .testTag("bottom_nav_bar"),
+            ) {
+                NavigationBarItem(
+                    selected = selectedList == null && currentTab == AppNavTab.ALL_LISTS,
+                    onClick = { viewModel.selectTab(AppNavTab.ALL_LISTS) },
+                    icon = { Icon(Icons.Default.Layers, contentDescription = "Lists") },
+                    label = { Text("Lists", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                )
+                NavigationBarItem(
+                    selected = selectedList == null && currentTab == AppNavTab.ALL_ITEMS,
+                    onClick = { viewModel.selectTab(AppNavTab.ALL_ITEMS) },
+                    icon = { Icon(Icons.AutoMirrored.Filled.FormatListBulleted, contentDescription = "All Items") },
+                    label = { Text("Items", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                )
+                NavigationBarItem(
+                    selected = selectedList == null && currentTab == AppNavTab.GALLERY,
+                    onClick = { viewModel.selectTab(AppNavTab.GALLERY) },
+                    icon = { Icon(Icons.Default.PhotoLibrary, contentDescription = "Gallery") },
+                    label = { Text("Gallery", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                )
+                NavigationBarItem(
+                    selected = selectedList == null && currentTab == AppNavTab.SETTINGS,
+                    onClick = { viewModel.selectTab(AppNavTab.SETTINGS) },
+                    icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
+                    label = { Text("Settings", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                )
             }
         }
     ) { innerPadding ->
@@ -251,8 +252,13 @@ fun MainAppScreen(viewModel: ListAppViewModel) {
                         onToggleHideChecked = { viewModel.toggleListHideChecked(it) },
                         onClearCompleted = { viewModel.clearCompletedInList(it) },
                         onToggleCheck = { id, checked -> viewModel.toggleTaskChecked(id, checked) },
-                        onClickItem = { viewModel.openItemPopup(it) },
-                        onAddNewItem = { viewModel.openNewItemPopup(it) }
+                        onClickItem = { viewModel.openItemPreview(it) },
+                        onAddNewItem = { viewModel.openNewItemPopup(it) },
+                        onReorderItems = { viewModel.reorderItems(it) },
+                        onLoadSectionOrder = { viewModel.loadListSectionOrder(it) },
+                        onSaveSectionOrder = { listId, sections -> viewModel.saveListSectionOrder(listId, sections) },
+                        onRenameSection = { listId, oldSec, newSec -> viewModel.renameSectionInList(listId, oldSec, newSec) },
+                        onUpdateItemSection = { itemId, newSec -> viewModel.updateItemSection(itemId, newSec) }
                     )
                 } else {
                     when (tab) {
@@ -264,7 +270,8 @@ fun MainAppScreen(viewModel: ListAppViewModel) {
                                 categories = categories,
                                 onListClick = { viewModel.openListDetail(it) },
                                 onCreateListClick = { viewModel.openCreateListDialog() },
-                                onEditListClick = { viewModel.openCreateListDialog(it) }
+                                onEditListClick = { viewModel.openCreateListDialog(it) },
+                                onReorderLists = { viewModel.reorderLists(it) }
                             )
                         }
                         AppNavTab.ALL_ITEMS -> {
@@ -291,9 +298,10 @@ fun MainAppScreen(viewModel: ListAppViewModel) {
                                 onToggleGroupByList = { viewModel.setGroupByList(it) },
                                 onToggleGroupByCategory = { viewModel.setGroupByCategory(it) },
                                 onToggleCheck = { id, checked -> viewModel.toggleTaskChecked(id, checked) },
-                                onClickItem = { viewModel.openItemPopup(it) },
+                                onClickItem = { viewModel.openItemPreview(it) },
                                 onNavigateToList = { viewModel.openListDetail(it) },
-                                onAddNewItem = { viewModel.openNewItemPopup() }
+                                onAddNewItem = { viewModel.openNewItemPopup() },
+                                onReorderItems = { viewModel.reorderItems(it) }
                             )
                         }
                         AppNavTab.GALLERY -> {
@@ -303,7 +311,7 @@ fun MainAppScreen(viewModel: ListAppViewModel) {
                                 categories = categories,
                                 sortOption = gallerySortOption,
                                 onSortChange = { viewModel.setGallerySortOption(it) },
-                                onClickItem = { viewModel.openItemPopup(it) },
+                                onClickItem = { viewModel.openItemPreview(it) },
                                 onNavigateToList = { viewModel.openListDetail(it) }
                             )
                         }
@@ -324,6 +332,7 @@ fun MainAppScreen(viewModel: ListAppViewModel) {
                                 showCounts = showCounts,
                                 priorities = priorities,
                                 categories = categories,
+                                itemTags = itemTags,
                                 onUpdateWidgetConfig = { viewModel.updateWidgetConfig(it) },
                                 onSetThemeMode = { viewModel.setThemeMode(it) },
                                 onSetColorPalette = { viewModel.setColorPalette(it) },
@@ -339,13 +348,30 @@ fun MainAppScreen(viewModel: ListAppViewModel) {
                                 onUpdateCategory = { id, name, icon, color -> viewModel.updateCategory(id, name, icon, color) },
                                 onDeleteCategory = { id -> viewModel.deleteCategory(id) },
                                 onResetCategories = { viewModel.resetCategories() },
+                                onAddTag = { viewModel.addCustomTag(it) },
+                                onUpdateTag = { oldTag, newTag -> viewModel.updateTagAppWide(oldTag, newTag) },
+                                onDeleteTag = { viewModel.deleteCustomTag(it) },
                                 onToggleTaskChecked = { id, checked -> viewModel.toggleTaskChecked(id, checked) },
                                 onQuickAddClick = { viewModel.openNewItemPopup(it) },
-                                onClickItem = { viewModel.openItemPopup(it) }
+                                onClickItem = { viewModel.openItemPreview(it) }
                             )
                         }
                     }
                 }
+            }
+
+            // ITEM PREVIEW PANE DIALOG (Overlay Screen)
+            if (activeItemForPreview != null) {
+                ItemPreviewDialog(
+                    item = activeItemForPreview!!,
+                    lists = allLists,
+                    categories = categories,
+                    priorities = priorities,
+                    onDismiss = viewModel::closeItemPreview,
+                    onEdit = viewModel::editItemFromPreview,
+                    onDelete = viewModel::deleteItem,
+                    onToggleCheck = { id, checked -> viewModel.toggleTaskChecked(id, checked) }
+                )
             }
 
             // POP-UP ITEM DETAIL / EDIT DIALOG (Matching Screenshot)
@@ -356,10 +382,13 @@ fun MainAppScreen(viewModel: ListAppViewModel) {
                     lists = allLists,
                     categories = categories,
                     priorities = priorities,
+                    itemTags = itemTags,
                     onDismiss = viewModel::closeItemPopup,
                     onSave = viewModel::saveItem,
                     onDelete = viewModel::deleteItem,
-                    onAddCustomCategory = viewModel::addCustomCategory
+                    onAddCustomCategory = viewModel::addCustomCategory,
+                    onAddPriority = { label, hex -> viewModel.addCustomPriority(label, hex) },
+                    onAddTag = { viewModel.addCustomTag(it) }
                 )
             }
 
