@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Background Container Card -->
+    <path
+        android:fillColor="#F8FAFC"
+        android:strokeColor="#CBD5E1"
+        android:strokeWidth="2"
+        android:pathData="M 16,16 L 184,16 A 16,16 0 0,1 200,32 L 200,168 A 16,16 0 0,1 184,184 L 16,184 A 16,16 0 0,1 0,168 L 0,32 A 16,16 0 0,1 16,16 Z" />
+
+    <!-- Top Header Background -->
+    <path
+        android:fillColor="#EA580C"
+        android:pathData="M 0,32 A 16,16 0 0,1 16,16 L 184,16 A 16,16 0 0,1 200,32 L 200,56 L 0,56 Z" />
+
+    <!-- Header Title Placeholder -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 20,30 L 95,30 L 95,42 L 20,42 Z" />
+
+    <!-- Cog Settings Icon Placeholder -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 176,34 A 4,4 0 1,0 184,34 A 4,4 0 1,0 176,34 Z" />
+
+    <!-- Featured Item Layout Content -->
+    <!-- Category & Priority Badges -->
+    <path
+        android:fillColor="#6366F1"
+        android:pathData="M 16,68 L 60,68 A 4,4 0 0,1 64,72 L 64,80 A 4,4 0 0,1 60,84 L 16,84 A 4,4 0 0,1 12,80 L 12,72 A 4,4 0 0,1 16,68 Z" />
+    <path
+        android:fillColor="#EF4444"
+        android:pathData="M 72,68 L 120,68 A 4,4 0 0,1 124,72 L 124,80 A 4,4 0 0,1 120,84 L 72,84 A 4,4 0 0,1 68,80 L 68,72 A 4,4 0 0,1 72,68 Z" />
+
+    <!-- Title Lines -->
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M 12,96 L 188,96 L 188,106 L 12,106 Z" />
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M 12,112 L 130,112 L 130,122 L 12,122 Z" />
+
+    <!-- Description Lines -->
+    <path
+        android:fillColor="#64748B"
+        android:pathData="M 12,132 L 180,132 L 180,138 L 12,138 Z" />
+    <path
+        android:fillColor="#64748B"
+        android:pathData="M 12,144 L 160,144 L 160,150 L 12,150 Z" />
+    <path
+        android:fillColor="#64748B"
+        android:pathData="M 12,156 L 140,156 L 140,162 L 12,162 Z" />
+
+    <!-- Footer Date Badge -->
+    <path
+        android:fillColor="#DB2777"
+        android:pathData="M 12,172 L 80,172 L 80,180 L 12,180 Z" />
+</vector>

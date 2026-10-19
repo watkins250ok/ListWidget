@@ -1,8 +1,8 @@
 package com.example.widget
 
+import android.R
 import android.app.Activity
 import android.appwidget.AppWidgetManager
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -12,14 +12,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -52,16 +50,17 @@ class WidgetConfigActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.setBackgroundDrawableResource(R.color.transparent)
+        @Suppress("DEPRECATION")
+        overridePendingTransition(0, 0)
 
-        // Default result is CANCELED if user backs out
-        setResult(Activity.RESULT_CANCELED)
+        setResult(RESULT_CANCELED)
 
         val appWidgetId = intent?.extras?.getInt(
             AppWidgetManager.EXTRA_APPWIDGET_ID,
             AppWidgetManager.INVALID_APPWIDGET_ID
         ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
 
-        // Determine default type if launched for a specific provider
         val appWidgetManager = AppWidgetManager.getInstance(this)
         val providerInfo = if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
             appWidgetManager?.getAppWidgetInfo(appWidgetId)
@@ -77,20 +76,34 @@ class WidgetConfigActivity : ComponentActivity() {
 
         setContent {
             ListWidgetAppTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.5f))
+                        .clickable { finish() },
+                    contentAlignment = Alignment.Center
                 ) {
-                    WidgetConfigScreen(
-                        appWidgetId = appWidgetId,
-                        defaultType = defaultType,
-                        onConfigSaved = { config ->
-                            saveAndFinish(appWidgetId, config)
-                        },
-                        onCancel = {
-                            finish()
-                        }
-                    )
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth(0.92f)
+                            .fillMaxHeight(0.85f)
+                            .clip(RoundedCornerShape(24.dp))
+                            .clickable(enabled = false) {},
+                        color = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 8.dp,
+                        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                    ) {
+                        WidgetConfigScreen(
+                            appWidgetId = appWidgetId,
+                            defaultType = defaultType,
+                            onConfigSaved = { config ->
+                                saveAndFinish(appWidgetId, config)
+                            },
+                            onCancel = {
+                                finish()
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -107,13 +120,19 @@ class WidgetConfigActivity : ComponentActivity() {
             val resultValue = Intent().apply {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
             }
-            setResult(Activity.RESULT_OK, resultValue)
+            setResult(RESULT_OK, resultValue)
         } else {
             repo.updateWidgetConfig(config)
             ListAppWidgetProvider.sendUpdateBroadcast(this)
-            setResult(Activity.RESULT_OK)
+            setResult(RESULT_OK)
         }
         finish()
+    }
+
+    override fun finish() {
+        super.finish()
+        @Suppress("DEPRECATION")
+        overridePendingTransition(0, 0)
     }
 }
 
@@ -127,7 +146,6 @@ fun WidgetConfigScreen(
 ) {
     val context = LocalContext.current
     val repo = remember { ListRepository(context) }
-    val scope = rememberCoroutineScope()
 
     var allLists by remember { mutableStateOf<List<ListEntity>>(emptyList()) }
     var allItems by remember { mutableStateOf<List<ListItemEntity>>(emptyList()) }
@@ -136,6 +154,11 @@ fun WidgetConfigScreen(
     var config by remember {
         mutableStateOf(repo.getWidgetConfigForAppWidgetId(appWidgetId, defaultType))
     }
+
+    // Dropdown visibility states
+    var colorDropdownExpanded by remember { mutableStateOf(false) }
+    var catMenuExpanded by remember { mutableStateOf(false) }
+    var tagMenuExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
@@ -146,7 +169,6 @@ fun WidgetConfigScreen(
         }
     }
 
-    // Available tags across all items
     val availableTags = remember(allItems) {
         allItems.flatMap { item ->
             item.tags.split(",", " ", "#")
@@ -171,23 +193,32 @@ fun WidgetConfigScreen(
 
     var itemSearchQuery by remember { mutableStateOf("") }
 
+    val themeColorOptions = listOf(
+        Triple("PURPLE", "Purple Glow", Color(0xFF7C3AED)),
+        Triple("WHITE", "Plain White", Color(0xFFFFFFFF)),
+        Triple("MIDNIGHT", "Midnight Dark", Color(0xFF0F172A)),
+        Triple("OCEAN", "Ocean Blue", Color(0xFF0284C7)),
+        Triple("EMERALD", "Emerald Green", Color(0xFF059669)),
+        Triple("SUNSET", "Sunset Amber", Color(0xFFEA580C)),
+        Triple("ROSE", "Rose Quartz", Color(0xFFDB2777)),
+        Triple("SLATE", "Slate Graphite", Color(0xFF334155)),
+        Triple("MINT", "Mint Teal", Color(0xFF0D9488)),
+        Triple("AMBER", "Warm Amber", Color(0xFFD97706)),
+        Triple("LAVENDER", "Soft Lavender", Color(0xFF6366F1)),
+        Triple("CORAL", "Coral Red", Color(0xFFE11D48))
+    )
+
+    val selectedColorObj = themeColorOptions.find { it.first.equals(config.themeStyle, ignoreCase = true) } ?: themeColorOptions.first()
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = "Configure Widget",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID)
-                                "Home Screen Widget #${appWidgetId}" else "Widget Setup",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        text = "Configure Widget",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onCancel) {
@@ -241,44 +272,6 @@ fun WidgetConfigScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            // Widget Type Selector Tabs
-            Text(
-                text = "Widget Mode",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                WidgetType.values().forEach { type ->
-                    val isSelected = config.widgetType == type
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = {
-                            config = config.copy(
-                                widgetType = type,
-                                widgetName = type.label
-                            )
-                        },
-                        label = { Text(type.label, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
-                        leadingIcon = {
-                            val icon = when (type) {
-                                WidgetType.ALL_LISTS -> Icons.Default.FolderSpecial
-                                WidgetType.ALL_ITEMS -> Icons.Default.ListAlt
-                                WidgetType.SPECIFIC_LIST -> Icons.Default.Checklist
-                                WidgetType.SPECIFIC_ITEM -> Icons.Default.Star
-                            }
-                            Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
-                        }
-                    )
-                }
-            }
-
             // Type-Specific Options
             when (config.widgetType) {
                 WidgetType.SPECIFIC_LIST -> {
@@ -316,7 +309,7 @@ fun WidgetConfigScreen(
                                                 .clip(RoundedCornerShape(12.dp))
                                                 .clickable { config = config.copy(listId = list.id) },
                                             color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                                            border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+                                            border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
                                             shape = RoundedCornerShape(12.dp)
                                         ) {
                                             Row(
@@ -395,55 +388,141 @@ fun WidgetConfigScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                             }
-                            Text(
-                                text = "Select which categories or tags appear in this widget:",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
 
-                            // Category filter chips
+                            // Category Filter Multi-Select Dropdown Menu
+                            val selectedCatList = remember(config.categoryFilter) {
+                                if (config.categoryFilter == "ALL") emptyList()
+                                else config.categoryFilter.split(",").map { it.trim() }.filter { it.isNotBlank() }
+                            }
+                            val catSummary = if (selectedCatList.isEmpty()) "All Categories" else "${selectedCatList.size} Selected (${selectedCatList.joinToString(", ")})"
+
                             Text("Category Filter", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                val categoryOptions = listOf("ALL", "TASK", "IDEA", "NOTE") + categories.map { it.name }.filter { it !in listOf("Task", "Idea", "Note") }
-                                categoryOptions.forEach { cat ->
-                                    val isSelected = config.categoryFilter.equals(cat, ignoreCase = true)
-                                    FilterChip(
-                                        selected = isSelected,
-                                        onClick = { config = config.copy(categoryFilter = cat) },
-                                        label = { Text(if (cat == "ALL") "All Categories" else cat) }
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                Surface(
+                                    onClick = { catMenuExpanded = true },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(catSummary, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                                    }
+                                }
+
+                                DropdownMenu(
+                                    expanded = catMenuExpanded,
+                                    onDismissRequest = { catMenuExpanded = false }
+                                ) {
+                                    val allCatNames = (listOf("Task", "Idea", "Note") + categories.map { it.name }).distinct()
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Checkbox(checked = selectedCatList.isEmpty(), onCheckedChange = { config = config.copy(categoryFilter = "ALL") })
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text("All Categories", fontWeight = FontWeight.Bold)
+                                            }
+                                        },
+                                        onClick = { config = config.copy(categoryFilter = "ALL") }
                                     )
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+                                    allCatNames.forEach { cat ->
+                                        val isSel = cat in selectedCatList
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Checkbox(
+                                                        checked = isSel,
+                                                        onCheckedChange = {
+                                                            val next = if (isSel) selectedCatList - cat else selectedCatList + cat
+                                                            config = config.copy(categoryFilter = if (next.isEmpty()) "ALL" else next.joinToString(","))
+                                                        }
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(cat)
+                                                }
+                                            },
+                                            onClick = {
+                                                val next = if (isSel) selectedCatList - cat else selectedCatList + cat
+                                                config = config.copy(categoryFilter = if (next.isEmpty()) "ALL" else next.joinToString(","))
+                                            }
+                                        )
+                                    }
                                 }
                             }
 
-                            // Tag filter chips
+                            // Tag Filter Multi-Select Dropdown Menu
+                            val selectedTagList = remember(config.tagFilter) {
+                                if (config.tagFilter == "ALL") emptyList()
+                                else config.tagFilter.split(",").map { it.trim().removePrefix("#") }.filter { it.isNotBlank() }
+                            }
+                            val tagSummary = if (selectedTagList.isEmpty()) "All Tags" else "${selectedTagList.size} Selected (${selectedTagList.joinToString(", ") { "#$it" }})"
+
                             Text("Tag Filter", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                FilterChip(
-                                    selected = config.tagFilter == "ALL",
-                                    onClick = { config = config.copy(tagFilter = "ALL") },
-                                    label = { Text("All Tags") }
-                                )
-                                availableTags.forEach { tag ->
-                                    val isSelected = config.tagFilter.equals(tag, ignoreCase = true)
-                                    FilterChip(
-                                        selected = isSelected,
-                                        onClick = { config = config.copy(tagFilter = tag) },
-                                        label = { Text("#$tag") }
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                Surface(
+                                    onClick = { tagMenuExpanded = true },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(tagSummary, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                                    }
+                                }
+
+                                DropdownMenu(
+                                    expanded = tagMenuExpanded,
+                                    onDismissRequest = { tagMenuExpanded = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Checkbox(checked = selectedTagList.isEmpty(), onCheckedChange = { config = config.copy(tagFilter = "ALL") })
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text("All Tags", fontWeight = FontWeight.Bold)
+                                            }
+                                        },
+                                        onClick = { config = config.copy(tagFilter = "ALL") }
                                     )
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+                                    availableTags.forEach { tag ->
+                                        val isSel = tag in selectedTagList
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Checkbox(
+                                                        checked = isSel,
+                                                        onCheckedChange = {
+                                                            val next = if (isSel) selectedTagList - tag else selectedTagList + tag
+                                                            config = config.copy(tagFilter = if (next.isEmpty()) "ALL" else next.joinToString(","))
+                                                        }
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text("#$tag")
+                                                }
+                                            },
+                                            onClick = {
+                                                val next = if (isSel) selectedTagList - tag else selectedTagList + tag
+                                                config = config.copy(tagFilter = if (next.isEmpty()) "ALL" else next.joinToString(","))
+                                            }
+                                        )
+                                    }
                                 }
                             }
 
-                            // Text Size Selector
+                            // Text Size Selector (Small, Medium, Large)
                             Text("Text Size", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -452,8 +531,7 @@ fun WidgetConfigScreen(
                                 val sizeOptions = listOf(
                                     "SMALL" to "Small",
                                     "MEDIUM" to "Medium",
-                                    "LARGE" to "Large",
-                                    "XLARGE" to "X-Large"
+                                    "LARGE" to "Large"
                                 )
                                 sizeOptions.forEach { (key, label) ->
                                     val isSelected = config.textSizeScale.equals(key, ignoreCase = true)
@@ -541,7 +619,7 @@ fun WidgetConfigScreen(
                                                 .clip(RoundedCornerShape(12.dp))
                                                 .clickable { config = config.copy(itemId = item.id) },
                                             color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                                            border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+                                            border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
                                             shape = RoundedCornerShape(12.dp)
                                         ) {
                                             Row(
@@ -583,7 +661,7 @@ fun WidgetConfigScreen(
                             }
 
                             // Featured Image Selector
-                            Divider(modifier = Modifier.padding(vertical = 4.dp))
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                             Text(
                                 text = "Hero Photo Banner (Optional)",
                                 style = MaterialTheme.typography.labelLarge,
@@ -665,77 +743,91 @@ fun WidgetConfigScreen(
                 }
             }
 
-            // Theme & Gradient Style Selector
-            Text(
-                text = "Widget Theme & Color Style",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            val themeOptions = listOf(
-                "PURPLE" to ("Purple Glow" to listOf(Color(0xFF6B21A8), Color(0xFF3B0764))),
-                "WHITE" to ("Plain White" to listOf(Color(0xFFFFFFFF), Color(0xFFF1F5F9))),
-                "MIDNIGHT" to ("Midnight Dark" to listOf(Color(0xFF1E293B), Color(0xFF0F172A))),
-                "OCEAN" to ("Ocean Blue" to listOf(Color(0xFF0284C7), Color(0xFF0C4A6E))),
-                "EMERALD" to ("Emerald Green" to listOf(Color(0xFF059669), Color(0xFF064E3B))),
-                "SUNSET" to ("Sunset Amber" to listOf(Color(0xFFD97706), Color(0xFF78350F))),
-                "ROSE" to ("Rose Quartz" to listOf(Color(0xFFE11D48), Color(0xFF881337))),
-                "SLATE" to ("Slate Graphite" to listOf(Color(0xFF475569), Color(0xFF1E293B))),
-                "MINT" to ("Mint Teal" to listOf(Color(0xFF0D9488), Color(0xFF134E4A))),
-                "AMBER" to ("Warm Amber" to listOf(Color(0xFFB45309), Color(0xFF78350F))),
-                "LAVENDER" to ("Soft Lavender" to listOf(Color(0xFF7E22CE), Color(0xFF581C87))),
-                "CORAL" to ("Coral Red" to listOf(Color(0xFFDC2626), Color(0xFF7F1D1D)))
-            )
-
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(themeOptions) { (key, pair) ->
-                    val (label, colors) = pair
-                    val isSelected = config.themeStyle.equals(key, ignoreCase = true)
-                    Surface(
-                        modifier = Modifier
-                            .size(width = 110.dp, height = 75.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable { config = config.copy(themeStyle = key) },
-                        shape = RoundedCornerShape(12.dp),
-                        border = if (isSelected) androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.primary) else androidx.compose.foundation.BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.4f))
+            // Theme & Color Style Selector Dropdown with Swatch and Name
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Surface(
+                    onClick = { colorDropdownExpanded = true },
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    if (key == "WHITE") Brush.linearGradient(listOf(Color(0xFFFFFFFF), Color(0xFFF8FAFC)))
-                                    else Brush.verticalGradient(colors)
-                                )
-                                .padding(8.dp),
-                            contentAlignment = Alignment.BottomStart
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .clip(CircleShape)
+                                    .background(selectedColorObj.third)
+                                    .border(1.dp, if (selectedColorObj.first == "WHITE") Color.Gray else Color.Transparent, CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = label,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = if (key == "WHITE") Color(0xFF0F172A) else Color.White
+                                text = selectedColorObj.second,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                             )
                         }
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = "Select Color Style",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                DropdownMenu(
+                    expanded = colorDropdownExpanded,
+                    onDismissRequest = { colorDropdownExpanded = false }
+                ) {
+                    themeColorOptions.forEach { (key, label, color) ->
+                        val isSelected = config.themeStyle.equals(key, ignoreCase = true)
+                        DropdownMenuItem(
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .clip(CircleShape)
+                                            .background(color)
+                                            .border(1.dp, if (key == "WHITE") Color.Gray else Color.Transparent, CircleShape)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = label,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            },
+                            onClick = {
+                                config = config.copy(themeStyle = key)
+                                colorDropdownExpanded = false
+                            }
+                        )
                     }
                 }
             }
 
-            // Live Preview Card
-            Text(
-                text = "Live Widget Preview",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
+            // Live Preview Card (Only shown if NOT ALL_ITEMS)
+            if (config.widgetType != WidgetType.ALL_ITEMS) {
+                Text(
+                    text = "Live Widget Preview",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
 
-            WidgetLivePreviewCard(
-                config = config,
-                allLists = allLists,
-                allItems = allItems
-            )
+                WidgetLivePreviewCard(
+                    config = config,
+                    allLists = allLists,
+                    allItems = allItems
+                )
+            }
         }
     }
 }
@@ -749,29 +841,26 @@ fun WidgetLivePreviewCard(
     val isWhite = config.themeStyle.equals("WHITE", ignoreCase = true)
     val bgBrush = when (config.themeStyle.uppercase()) {
         "WHITE" -> Brush.verticalGradient(listOf(Color(0xFFFFFFFF), Color(0xFFF8FAFC)))
-        "MIDNIGHT" -> Brush.verticalGradient(listOf(Color(0xFF1E293B), Color(0xFF0F172A)))
-        "OCEAN" -> Brush.verticalGradient(listOf(Color(0xFF0284C7), Color(0xFF0C4A6E)))
+        "MIDNIGHT" -> Brush.verticalGradient(listOf(Color(0xFF0F172A), Color(0xFF020617)))
+        "OCEAN" -> Brush.verticalGradient(listOf(Color(0xFF0284C7), Color(0xFF082F49)))
         "EMERALD" -> Brush.verticalGradient(listOf(Color(0xFF059669), Color(0xFF064E3B)))
-        "SUNSET" -> Brush.verticalGradient(listOf(Color(0xFFD97706), Color(0xFF78350F)))
-        "ROSE" -> Brush.verticalGradient(listOf(Color(0xFFE11D48), Color(0xFF881337)))
-        "SLATE" -> Brush.verticalGradient(listOf(Color(0xFF475569), Color(0xFF1E293B)))
-        "MINT" -> Brush.verticalGradient(listOf(Color(0xFF0D9488), Color(0xFF134E4A)))
-        "AMBER" -> Brush.verticalGradient(listOf(Color(0xFFB45309), Color(0xFF78350F)))
-        "LAVENDER" -> Brush.verticalGradient(listOf(Color(0xFF7E22CE), Color(0xFF581C87)))
-        "CORAL" -> Brush.verticalGradient(listOf(Color(0xFFDC2626), Color(0xFF7F1D1D)))
-        else -> Brush.verticalGradient(listOf(Color(0xFF6B21A8), Color(0xFF3B0764)))
+        "SUNSET" -> Brush.verticalGradient(listOf(Color(0xFFEA580C), Color(0xFF7C2D12)))
+        "ROSE" -> Brush.verticalGradient(listOf(Color(0xFFDB2777), Color(0xFF700736)))
+        "SLATE" -> Brush.verticalGradient(listOf(Color(0xFF334155), Color(0xFF0F172A)))
+        "MINT" -> Brush.verticalGradient(listOf(Color(0xFF0D9488), Color(0xFF042F2E)))
+        "AMBER" -> Brush.verticalGradient(listOf(Color(0xFFD97706), Color(0xFF78350F)))
+        "LAVENDER" -> Brush.verticalGradient(listOf(Color(0xFF6366F1), Color(0xFF312E81)))
+        "CORAL" -> Brush.verticalGradient(listOf(Color(0xFFE11D48), Color(0xFF881337)))
+        else -> Brush.verticalGradient(listOf(Color(0xFF6D28D9), Color(0xFF3B0764)))
     }
 
-    val primaryTextColor = if (isWhite) Color(0xFF0F172A) else Color.White
-    val secondaryTextColor = if (isWhite) Color(0xFF64748B) else Color(0xFFCBD5E1)
-
-    Surface(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp)),
         shape = RoundedCornerShape(20.dp),
-        shadowElevation = 8.dp,
-        border = if (isWhite) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)) else null
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        border = BorderStroke(1.dp, if (isWhite) Color(0xFFCBD5E1) else Color.White.copy(alpha = 0.2f))
     ) {
         Box(
             modifier = Modifier
@@ -779,154 +868,83 @@ fun WidgetLivePreviewCard(
                 .background(bgBrush)
                 .padding(16.dp)
         ) {
-            when (config.widgetType) {
-                WidgetType.SPECIFIC_ITEM -> {
-                    val item = allItems.find { it.id == config.itemId } ?: allItems.firstOrNull()
-                    val parentList = allLists.find { it.id == item?.listId }
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (config.customImageUri != null) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(110.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                            ) {
-                                AsyncImage(
-                                    model = config.customImageUri,
-                                    contentDescription = null,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = when (config.widgetType) {
+                            WidgetType.ALL_LISTS -> "All Lists"
+                            WidgetType.ALL_ITEMS -> "All Items"
+                            WidgetType.SPECIFIC_LIST -> "${allLists.find { it.id == config.listId }?.name ?: "List"} ▾"
+                            WidgetType.SPECIFIC_ITEM -> "Featured Item"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isWhite) Color(0xFF0F172A) else Color.White
+                    )
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (isWhite) Color(0xFFE2E8F0) else Color.White.copy(alpha = 0.2f)
                         ) {
-                            Surface(
-                                color = if (isWhite) Color(0xFFEEF2FF) else Color(0x33FFFFFF),
-                                shape = RoundedCornerShape(6.dp)
-                            ) {
-                                Text(
-                                    text = item?.category ?: "Task",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (isWhite) Color(0xFF4F46E5) else Color.White,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
                             Text(
-                                text = parentList?.name ?: "My List",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = secondaryTextColor,
+                                text = "+",
+                                color = if (isWhite) Color(0xFF0F172A) else Color.White,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                        Text(
-                            text = item?.title ?: "Sample Item Title",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = primaryTextColor
-                        )
-                        Text(
-                            text = item?.description?.ifBlank { "Full item description and notes go here." } ?: "Full item description and notes go here.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = secondaryTextColor,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (isWhite) Color(0xFFE2E8F0) else Color.White.copy(alpha = 0.2f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = null,
+                                tint = if (isWhite) Color(0xFF0F172A) else Color.White,
+                                modifier = Modifier
+                                    .padding(4.dp)
+                                    .size(14.dp)
+                            )
+                        }
                     }
                 }
 
-                WidgetType.ALL_LISTS -> {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                Spacer(modifier = Modifier.height(10.dp))
+
+                val sampleItems = allItems.take(3)
+                if (sampleItems.isEmpty()) {
+                    Text("No items to preview", color = if (isWhite) Color(0xFF64748B) else Color.White.copy(alpha = 0.7f))
+                } else {
+                    sampleItems.forEach { item ->
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 3.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isWhite) Color(0xFFF1F5F9) else Color.White.copy(alpha = 0.15f)
                         ) {
-                            Text("All Lists", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = primaryTextColor)
-                            Surface(color = if (isWhite) Color(0xFFEEF2FF) else Color(0x33FFFFFF), shape = RoundedCornerShape(6.dp)) {
-                                Text("+ Quick Add", style = MaterialTheme.typography.labelSmall, color = if (isWhite) Color(0xFF4F46E5) else Color.White, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        allLists.take(3).forEach { list ->
-                            val count = allItems.count { it.listId == list.id }
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = if (isWhite) Color(0xFFF1F5F9) else Color(0x22FFFFFF),
-                                shape = RoundedCornerShape(10.dp)
+                            Row(
+                                modifier = Modifier.padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(10.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(list.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = primaryTextColor)
-                                    Text("$count items", style = MaterialTheme.typography.labelSmall, color = secondaryTextColor)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                else -> {
-                    // SPECIFIC_LIST or ALL_ITEMS
-                    val targetList = allLists.find { it.id == config.listId } ?: allLists.firstOrNull()
-                    val title = when (config.widgetType) {
-                        WidgetType.ALL_ITEMS -> {
-                            if (config.categoryFilter != "ALL") "All Items • ${config.categoryFilter}"
-                            else if (config.tagFilter != "ALL") "All Items • #${config.tagFilter}"
-                            else "All Items"
-                        }
-                        else -> "${targetList?.name ?: "To-Do List"} ▾"
-                    }
-
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = primaryTextColor)
-                            Surface(color = if (isWhite) Color(0xFFEEF2FF) else Color(0x33FFFFFF), shape = RoundedCornerShape(6.dp)) {
-                                Text("+ Quick Add", style = MaterialTheme.typography.labelSmall, color = if (isWhite) Color(0xFF4F46E5) else Color.White, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontWeight = FontWeight.Bold)
-                            }
-                        }
-
-                        val sampleItems = if (config.widgetType == WidgetType.ALL_ITEMS) {
-                            allItems.take(3)
-                        } else {
-                            allItems.filter { it.listId == targetList?.id }.take(3)
-                        }
-
-                        if (sampleItems.isEmpty()) {
-                            Text("No items in list", style = MaterialTheme.typography.bodySmall, color = secondaryTextColor)
-                        } else {
-                            sampleItems.forEach { item ->
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    color = if (isWhite) Color(0xFFF1F5F9) else Color(0x22FFFFFF),
-                                    shape = RoundedCornerShape(10.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Icon(
-                                            if (item.isChecked) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
-                                            contentDescription = null,
-                                            tint = if (isWhite) Color(0xFF4F46E5) else Color.White,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Text(item.title, style = MaterialTheme.typography.bodyMedium, color = primaryTextColor, modifier = Modifier.weight(1f))
-                                        if (item.category.isNotBlank()) {
-                                            Text(item.category, style = MaterialTheme.typography.labelSmall, color = secondaryTextColor)
-                                        }
-                                    }
-                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isWhite) Color(0xFF4F46E5) else Color.White)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = item.title,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (isWhite) Color(0xFF0F172A) else Color.White,
+                                    maxLines = 1
+                                )
                             }
                         }
                     }

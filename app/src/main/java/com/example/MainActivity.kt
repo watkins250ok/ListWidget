@@ -93,10 +93,13 @@ class MainActivity : ComponentActivity() {
         if (intent == null) return
         val openItemId = intent.getLongExtra(ListAppWidgetProvider.EXTRA_OPEN_ITEM_ID, -1L)
         val listId = intent.getLongExtra(ListAppWidgetProvider.EXTRA_LIST_ID, -1L)
+        val quickAddList = intent.getBooleanExtra(ListAppWidgetProvider.EXTRA_QUICK_ADD_LIST, false)
         val quickAdd = intent.getBooleanExtra(ListAppWidgetProvider.EXTRA_QUICK_ADD, false)
 
         if (openItemId > 0) {
             viewModel.openItemById(openItemId)
+        } else if (quickAddList) {
+            viewModel.openCreateListDialog()
         } else if (quickAdd) {
             viewModel.openNewItemPopup(if (listId > 0) listId else 0L)
         } else if (listId > 0) {

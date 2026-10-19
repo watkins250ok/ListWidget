@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Background Container Card -->
+    <path
+        android:fillColor="#F8FAFC"
+        android:strokeColor="#CBD5E1"
+        android:strokeWidth="2"
+        android:pathData="M 16,16 L 184,16 A 16,16 0 0,1 200,32 L 200,168 A 16,16 0 0,1 184,184 L 16,184 A 16,16 0 0,1 0,168 L 0,32 A 16,16 0 0,1 16,16 Z" />
+
+    <!-- Top Header Background -->
+    <path
+        android:fillColor="#059669"
+        android:pathData="M 0,32 A 16,16 0 0,1 16,16 L 184,16 A 16,16 0 0,1 200,32 L 200,56 L 0,56 Z" />
+
+    <!-- Header Title Placeholder with Dropdown Arrow -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 20,30 L 90,30 L 90,42 L 20,42 Z" />
+
+    <!-- Plus + Icon Placeholder -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 148,32 L 156,32 L 156,24 L 160,24 L 160,32 L 168,32 L 168,36 L 160,36 L 160,44 L 156,44 L 156,36 L 148,36 Z" />
+
+    <!-- Cog Settings Icon Placeholder -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 176,34 A 4,4 0 1,0 184,34 A 4,4 0 1,0 176,34 Z" />
+
+    <!-- List Items (3 Minimalist Cards) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#E2E8F0"
+        android:strokeWidth="1.5"
+        android:pathData="M 14,68 L 186,68 A 8,8 0 0,1 194,76 L 194,96 A 8,8 0 0,1 186,104 L 14,104 A 8,8 0 0,1 6,96 L 6,76 A 8,8 0 0,1 14,68 Z" />
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M 18,80 L 32,80 L 32,92 L 18,92 Z" />
+    <path
+        android:fillColor="#334155"
+        android:pathData="M 40,82 L 145,82 L 145,90 L 40,90 Z" />
+
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#E2E8F0"
+        android:strokeWidth="1.5"
+        android:pathData="M 14,110 L 186,110 A 8,8 0 0,1 194,118 L 194,138 A 8,8 0 0,1 186,146 L 14,146 A 8,8 0 0,1 6,118 L 6,118 A 8,8 0 0,1 14,110 Z" />
+    <path
+        android:fillColor="#CBD5E1"
+        android:pathData="M 18,122 L 32,122 L 32,134 L 18,134 Z" />
+    <path
+        android:fillColor="#334155"
+        android:pathData="M 40,124 L 130,124 L 130,132 L 40,132 Z" />
+
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#E2E8F0"
+        android:strokeWidth="1.5"
+        android:pathData="M 14,152 L 186,152 A 8,8 0 0,1 194,160 L 194,176 A 8,8 0 0,1 186,184 L 14,184 A 8,8 0 0,1 6,176 L 6,160 A 8,8 0 0,1 14,152 Z" />
+    <path
+        android:fillColor="#CBD5E1"
+        android:pathData="M 18,164 L 32,164 L 32,176 L 18,176 Z" />
+    <path
+        android:fillColor="#334155"
+        android:pathData="M 40,166 L 120,166 L 120,174 L 40,174 Z" />
+</vector>

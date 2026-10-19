@@ -240,7 +240,9 @@ class ListWidgetRemoteViewsFactory(
         views.setTextViewText(R.id.widget_item_title, item.title)
         views.setTextViewTextSize(R.id.widget_item_title, TypedValue.COMPLEX_UNIT_SP, 13f * textScale)
 
-        val isTask = item.type == "TASK"
+        val isAllItemsWidget = currentWidgetType == WidgetType.ALL_ITEMS
+        val isTask = item.type == "TASK" || item.effectiveCategory.equals("Task", ignoreCase = true)
+
         if (isTask) {
             if (item.isChecked) {
                 views.setImageViewResource(R.id.widget_item_check_icon, R.drawable.ic_widget_checkbox_checked)
@@ -256,7 +258,6 @@ class ListWidgetRemoteViewsFactory(
             }
             views.setOnClickFillInIntent(R.id.widget_item_check_icon, checkFillInIntent)
         } else {
-            // Show category icon set by user instead of bullet point!
             val categoryRes = getCategoryDrawableRes(item.effectiveCategory)
             views.setImageViewResource(R.id.widget_item_check_icon, categoryRes)
             views.setTextColor(R.id.widget_item_title, Color.parseColor("#FFFFFF"))
@@ -272,8 +273,8 @@ class ListWidgetRemoteViewsFactory(
             views.setViewVisibility(R.id.widget_item_due_badge, View.GONE)
         }
 
-        // Tags
-        if (item.tags.isNotBlank()) {
+        // Tags (Hidden for ALL_ITEMS widget)
+        if (!isAllItemsWidget && item.tags.isNotBlank()) {
             val firstTag = item.tags.split(",").firstOrNull()?.trim() ?: ""
             if (firstTag.isNotBlank()) {
                 views.setViewVisibility(R.id.widget_item_tag_badge, View.VISIBLE)
@@ -286,8 +287,8 @@ class ListWidgetRemoteViewsFactory(
             views.setViewVisibility(R.id.widget_item_tag_badge, View.GONE)
         }
 
-        // Description preview
-        if (showDescription && item.description.isNotBlank()) {
+        // Description preview (Hidden for ALL_ITEMS widget)
+        if (!isAllItemsWidget && showDescription && item.description.isNotBlank()) {
             views.setViewVisibility(R.id.widget_item_desc, View.VISIBLE)
             val cleanDesc = item.description.replace("#", "").replace("*", "").replace(">", "").trim()
             views.setTextViewText(R.id.widget_item_desc, cleanDesc)
@@ -296,12 +297,10 @@ class ListWidgetRemoteViewsFactory(
             views.setViewVisibility(R.id.widget_item_desc, View.GONE)
         }
 
-        // Fill-in Intent
+        // Fill-in Intent for Item Row (Opens app to Items page with Item Preview)
         val fillInIntent = Intent().apply {
             putExtra(ListAppWidgetProvider.EXTRA_OPEN_ITEM_ID, item.id)
             putExtra(ListAppWidgetProvider.EXTRA_LIST_ID, item.listId)
-            putExtra(ListAppWidgetProvider.EXTRA_IS_CHECKED, item.isChecked)
-            putExtra("is_task", isTask)
         }
         views.setOnClickFillInIntent(R.id.widget_item_container, fillInIntent)
 

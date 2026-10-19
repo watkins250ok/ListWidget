@@ -57,6 +57,7 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                             try {
                                 val repo = ListRepository(context)
                                 repo.toggleTaskChecked(itemId, !isChecked)
+                                sendUpdateBroadcast(context)
                             } catch (_: Throwable) {
                             } finally {
                                 pendingResult.finish()
@@ -131,7 +132,9 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
         const val EXTRA_IS_CHECKED = "extra_is_checked"
         const val EXTRA_LIST_ID = "extra_list_id"
         const val EXTRA_OPEN_ITEM_ID = "extra_open_item_id"
+        const val EXTRA_PREVIEW_ITEM_ID = "extra_preview_item_id"
         const val EXTRA_QUICK_ADD = "extra_quick_add"
+        const val EXTRA_QUICK_ADD_LIST = "extra_quick_add_list"
         const val EXTRA_TOGGLE_CHECK = "extra_toggle_check"
         const val EXTRA_TOGGLE_SUBTASK = "extra_toggle_subtask"
         const val EXTRA_SUBTASK_INDEX = "extra_subtask_index"
@@ -205,9 +208,9 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                         else -> R.drawable.widget_bg_purple
                     }
 
-                    // Intent to launch WidgetConfigActivity for this specific widget instance
+                    // Intent to launch WidgetConfigActivity as an isolated floating pop-up dialog
                     val configIntent = Intent(context, WidgetConfigActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
                         putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                     }
                     val configPendingIntent = PendingIntent.getActivity(
@@ -280,17 +283,7 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                     val targetList = lists.find { it.id == widgetConfig.listId } ?: lists.firstOrNull()
                     val headerTitle = when (widgetConfig.widgetType) {
                         com.example.data.model.WidgetType.ALL_LISTS -> "All Lists"
-                        com.example.data.model.WidgetType.ALL_ITEMS -> {
-                            if ((widgetConfig.categoryFilter != "ALL") && (widgetConfig.tagFilter != "ALL")) {
-                                "${widgetConfig.categoryFilter} • #${widgetConfig.tagFilter} ▾"
-                            } else if (widgetConfig.categoryFilter != "ALL") {
-                                "All Items • ${widgetConfig.categoryFilter} ▾"
-                            } else if (widgetConfig.tagFilter != "ALL") {
-                                "All Items • #${widgetConfig.tagFilter} ▾"
-                            } else {
-                                "All Items ▾"
-                            }
-                        }
+                        WidgetType.ALL_ITEMS -> "All Items"
                         com.example.data.model.WidgetType.SPECIFIC_LIST -> "${targetList?.name ?: "All Items"} ▾"
                         else -> "My List"
                     }
@@ -305,10 +298,9 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                     views.setTextViewText(R.id.widget_list_title, headerTitle)
                     views.setTextViewTextSize(R.id.widget_list_title, TypedValue.COMPLEX_UNIT_SP, 15f * textScale)
 
-                    // Adjust quick add button text if resized to narrow width
-                    val quickAddLabel = if (minWidth in (1..210)) "+" else "+ Quick Add"
-                    views.setTextViewText(R.id.widget_btn_quick_add, quickAddLabel)
-                    views.setTextViewTextSize(R.id.widget_btn_quick_add, TypedValue.COMPLEX_UNIT_SP, 11.5f * textScale)
+                    // Quick add button label set to +
+                    views.setTextViewText(R.id.widget_btn_quick_add, "+")
+                    views.setTextViewTextSize(R.id.widget_btn_quick_add, TypedValue.COMPLEX_UNIT_SP, 16f * textScale)
 
                     if (isWhiteTheme) {
                         views.setTextColor(R.id.widget_list_title, android.graphics.Color.parseColor("#0F172A"))
@@ -320,15 +312,19 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                         views.setTextColor(R.id.widget_empty_view, android.graphics.Color.parseColor("#B0FFFFFF"))
                     }
 
-                    // Config button intent
+                    // Config button intent (opens Widget Configuration pop-up for this widget)
                     views.setOnClickPendingIntent(R.id.widget_btn_config, configPendingIntent)
 
-                    // Quick Add button intent
+                    // Quick Add button intent (opens List or Item Editor in an isolated floating pop-up without bringing MainActivity forward)
                     val listId = targetList?.id ?: 0L
-                    val quickAddIntent = Intent(context, MainActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                        putExtra(EXTRA_QUICK_ADD, true)
-                        putExtra(EXTRA_LIST_ID, listId)
+                    val quickAddIntent = Intent(context, WidgetQuickAddActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
+                        if (widgetConfig.widgetType == WidgetType.ALL_LISTS) {
+                            putExtra(EXTRA_QUICK_ADD_LIST, true)
+                        } else {
+                            putExtra(EXTRA_QUICK_ADD, true)
+                            putExtra(EXTRA_LIST_ID, listId)
+                        }
                     }
                     val quickAddPending = PendingIntent.getActivity(
                         context,
@@ -337,23 +333,6 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                     )
                     views.setOnClickPendingIntent(R.id.widget_btn_quick_add, quickAddPending)
-
-                    // Header title click:
-                    // In SPECIFIC_LIST or ALL_ITEMS mode, tapping header opens widget configuration to select list / filters easily!
-                    val headerPending = if ((widgetConfig.widgetType == WidgetType.SPECIFIC_LIST) || (widgetConfig.widgetType == WidgetType.ALL_ITEMS)) {
-                        configPendingIntent
-                    } else {
-                        val headerIntent = Intent(context, MainActivity::class.java).apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                        }
-                        PendingIntent.getActivity(
-                            context,
-                            (appWidgetId * 100) + 2,
-                            headerIntent,
-                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-                        )
-                    }
-                    views.setOnClickPendingIntent(R.id.widget_list_title, headerPending)
 
                     // Set up RemoteViewsService Adapter with appWidgetId
                     val serviceIntent = Intent(context, ListWidgetRemoteViewsService::class.java).apply {
@@ -364,7 +343,7 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                     views.setRemoteAdapter(R.id.widget_list_view, serviceIntent)
                     views.setEmptyView(R.id.widget_list_view, R.id.widget_empty_view)
 
-                    // PendingIntent template for item clicks (Broadcast)
+                    // PendingIntent template for item clicks (Broadcast to ListAppWidgetProvider.onReceive)
                     val clickIntentTemplate = Intent(context, ListAppWidgetProvider::class.java).apply {
                         action = ACTION_ITEM_CLICK
                     }

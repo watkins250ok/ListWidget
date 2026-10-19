@@ -177,8 +177,9 @@ class ListAppViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             val item = repository.getItemById(itemId)
             if (item != null) {
-                _selectedListId.value = item.listId
-                _activeItemForPopup.value = item
+                _currentTab.value = AppNavTab.ALL_ITEMS
+                _selectedListId.value = null
+                _activeItemForPreview.value = item
             }
         }
     }

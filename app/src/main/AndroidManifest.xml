@@ -15,6 +15,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -30,13 +31,27 @@
         <activity
             android:name=".widget.WidgetActionActivity"
             android:exported="false"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@style/Theme.ListWidget.Dialog" />
+
+        <activity
+            android:name=".widget.WidgetQuickAddActivity"
+            android:exported="false"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@style/Theme.ListWidget.Dialog" />
 
         <activity
             android:name=".widget.WidgetConfigActivity"
             android:exported="true"
             android:label="Configure Widget"
-            android:theme="@style/Theme.MyApplication">
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@style/Theme.ListWidget.Dialog">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
@@ -104,22 +119,6 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_specific_item_info" />
-        </receiver>
-
-        <!-- Legacy App Widget Provider for Backward Compatibility -->
-        <receiver
-            android:name=".widget.ListAppWidgetProvider"
-            android:exported="false"
-            android:label="List &amp; Tasks Widget">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.example.widget.ACTION_ITEM_CLICK" />
-                <action android:name="com.example.widget.ACTION_TOGGLE_TASK" />
-                <action android:name="com.example.widget.ACTION_DATA_CHANGED" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/list_appwidget_info" />
         </receiver>
 
         <!-- RemoteViews Services for Widget ListViews -->
