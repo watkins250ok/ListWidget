@@ -383,9 +383,10 @@ private fun CategoryIconBox(category: String, isChecked: Boolean, itemId: Long, 
         "Idea" -> {
             Box(
                 modifier = Modifier
-                    .size(22.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFF59E0B).copy(alpha = 0.2f)),
+                    .size(24.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFFF59E0B).copy(alpha = 0.18f))
+                    .border(1.dp, Color(0xFFF59E0B).copy(alpha = 0.35f), RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -399,9 +400,10 @@ private fun CategoryIconBox(category: String, isChecked: Boolean, itemId: Long, 
         "Note" -> {
             Box(
                 modifier = Modifier
-                    .size(22.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFEC4899).copy(alpha = 0.2f)),
+                    .size(24.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFFEC4899).copy(alpha = 0.18f))
+                    .border(1.dp, Color(0xFFEC4899).copy(alpha = 0.35f), RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -416,9 +418,10 @@ private fun CategoryIconBox(category: String, isChecked: Boolean, itemId: Long, 
             val iconVector = getVectorForCategory(category)
             Box(
                 modifier = Modifier
-                    .size(22.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFF0284C7).copy(alpha = 0.18f)),
+                    .size(24.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF0284C7).copy(alpha = 0.18f))
+                    .border(1.dp, Color(0xFF0284C7).copy(alpha = 0.35f), RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(

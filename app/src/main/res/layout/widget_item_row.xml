@@ -11,16 +11,18 @@
     android:paddingTop="6dp"
     android:paddingBottom="6dp">
 
-    <!-- Checkbox / Category Icon -->
+    <!-- Target A: Checkbox / Category Icon -->
     <ImageView
         android:id="@+id/widget_item_check_icon"
-        android:layout_width="22dp"
-        android:layout_height="22dp"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:padding="3dp"
         android:layout_marginEnd="6dp"
         android:src="@drawable/ic_widget_checkbox_unchecked" />
 
-    <!-- Content -->
+    <!-- Target B: Content Container (Sibling to Checkbox) -->
     <LinearLayout
+        android:id="@+id/widget_item_content_container"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"

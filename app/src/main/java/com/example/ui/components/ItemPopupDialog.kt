@@ -207,8 +207,9 @@ fun ItemPopupDialog(
                     Box(
                         modifier = Modifier
                             .size(42.dp)
-                            .clip(CircleShape)
-                            .background(headerColor.copy(alpha = 0.18f)),
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(headerColor.copy(alpha = 0.18f))
+                            .border(1.dp, headerColor.copy(alpha = 0.35f), RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(

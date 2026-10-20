@@ -355,6 +355,27 @@ fun WidgetConfigScreen(
                                 }
                             }
 
+                            // Text Size Selector (Small, Medium, Large)
+                            Text("Text Size", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                val sizeOptions = listOf(
+                                    "SMALL" to "Small",
+                                    "MEDIUM" to "Medium",
+                                    "LARGE" to "Large"
+                                )
+                                sizeOptions.forEach { (key, label) ->
+                                    val isSelected = config.textSizeScale.equals(key, ignoreCase = true)
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = { config = config.copy(textSizeScale = key) },
+                                        label = { Text(label) }
+                                    )
+                                }
+                            }
+
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -660,6 +681,27 @@ fun WidgetConfigScreen(
                                 }
                             }
 
+                            // Text Size Selector (Small, Medium, Large)
+                            Text("Text Size", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                val sizeOptions = listOf(
+                                    "SMALL" to "Small",
+                                    "MEDIUM" to "Medium",
+                                    "LARGE" to "Large"
+                                )
+                                sizeOptions.forEach { (key, label) ->
+                                    val isSelected = config.textSizeScale.equals(key, ignoreCase = true)
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = { config = config.copy(textSizeScale = key) },
+                                        label = { Text(label) }
+                                    )
+                                }
+                            }
+
                             // Featured Image Selector
                             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                             Text(
@@ -723,21 +765,27 @@ fun WidgetConfigScreen(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.FolderSpecial, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "All Lists Overview",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            // Text Size Selector (Small, Medium, Large)
+                            Text("Text Size", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                val sizeOptions = listOf(
+                                    "SMALL" to "Small",
+                                    "MEDIUM" to "Medium",
+                                    "LARGE" to "Large"
                                 )
+                                sizeOptions.forEach { (key, label) ->
+                                    val isSelected = config.textSizeScale.equals(key, ignoreCase = true)
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = { config = config.copy(textSizeScale = key) },
+                                        label = { Text(label) }
+                                    )
+                                }
                             }
-                            Text(
-                                text = "Displays all ${allLists.size} of your lists with icon, creation date, and item totals.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
                         }
                     }
                 }
@@ -809,144 +857,6 @@ fun WidgetConfigScreen(
                                 colorDropdownExpanded = false
                             }
                         )
-                    }
-                }
-            }
-
-            // Live Preview Card (Only shown if NOT ALL_ITEMS)
-            if (config.widgetType != WidgetType.ALL_ITEMS) {
-                Text(
-                    text = "Live Widget Preview",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                WidgetLivePreviewCard(
-                    config = config,
-                    allLists = allLists,
-                    allItems = allItems
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun WidgetLivePreviewCard(
-    config: WidgetStyleConfig,
-    allLists: List<ListEntity>,
-    allItems: List<ListItemEntity>
-) {
-    val isWhite = config.themeStyle.equals("WHITE", ignoreCase = true)
-    val bgBrush = when (config.themeStyle.uppercase()) {
-        "WHITE" -> Brush.verticalGradient(listOf(Color(0xFFFFFFFF), Color(0xFFF8FAFC)))
-        "MIDNIGHT" -> Brush.verticalGradient(listOf(Color(0xFF0F172A), Color(0xFF020617)))
-        "OCEAN" -> Brush.verticalGradient(listOf(Color(0xFF0284C7), Color(0xFF082F49)))
-        "EMERALD" -> Brush.verticalGradient(listOf(Color(0xFF059669), Color(0xFF064E3B)))
-        "SUNSET" -> Brush.verticalGradient(listOf(Color(0xFFEA580C), Color(0xFF7C2D12)))
-        "ROSE" -> Brush.verticalGradient(listOf(Color(0xFFDB2777), Color(0xFF700736)))
-        "SLATE" -> Brush.verticalGradient(listOf(Color(0xFF334155), Color(0xFF0F172A)))
-        "MINT" -> Brush.verticalGradient(listOf(Color(0xFF0D9488), Color(0xFF042F2E)))
-        "AMBER" -> Brush.verticalGradient(listOf(Color(0xFFD97706), Color(0xFF78350F)))
-        "LAVENDER" -> Brush.verticalGradient(listOf(Color(0xFF6366F1), Color(0xFF312E81)))
-        "CORAL" -> Brush.verticalGradient(listOf(Color(0xFFE11D48), Color(0xFF881337)))
-        else -> Brush.verticalGradient(listOf(Color(0xFF6D28D9), Color(0xFF3B0764)))
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp)),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        border = BorderStroke(1.dp, if (isWhite) Color(0xFFCBD5E1) else Color.White.copy(alpha = 0.2f))
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(bgBrush)
-                .padding(16.dp)
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = when (config.widgetType) {
-                            WidgetType.ALL_LISTS -> "All Lists"
-                            WidgetType.ALL_ITEMS -> "All Items"
-                            WidgetType.SPECIFIC_LIST -> "${allLists.find { it.id == config.listId }?.name ?: "List"} ▾"
-                            WidgetType.SPECIFIC_ITEM -> "Featured Item"
-                        },
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isWhite) Color(0xFF0F172A) else Color.White
-                    )
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = if (isWhite) Color(0xFFE2E8F0) else Color.White.copy(alpha = 0.2f)
-                        ) {
-                            Text(
-                                text = "+",
-                                color = if (isWhite) Color(0xFF0F172A) else Color.White,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = if (isWhite) Color(0xFFE2E8F0) else Color.White.copy(alpha = 0.2f)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = null,
-                                tint = if (isWhite) Color(0xFF0F172A) else Color.White,
-                                modifier = Modifier
-                                    .padding(4.dp)
-                                    .size(14.dp)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                val sampleItems = allItems.take(3)
-                if (sampleItems.isEmpty()) {
-                    Text("No items to preview", color = if (isWhite) Color(0xFF64748B) else Color.White.copy(alpha = 0.7f))
-                } else {
-                    sampleItems.forEach { item ->
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 3.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (isWhite) Color(0xFFF1F5F9) else Color.White.copy(alpha = 0.15f)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .clip(CircleShape)
-                                        .background(if (isWhite) Color(0xFF4F46E5) else Color.White)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = item.title,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (isWhite) Color(0xFF0F172A) else Color.White,
-                                    maxLines = 1
-                                )
-                            }
-                        }
                     }
                 }
             }

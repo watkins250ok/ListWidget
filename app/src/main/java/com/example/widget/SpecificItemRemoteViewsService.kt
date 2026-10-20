@@ -162,7 +162,7 @@ class SpecificItemRemoteViewsFactory(
                     views.setImageViewResource(R.id.widget_header_checkbox, categoryRes)
                 }
 
-                views.setOnClickFillInIntent(R.id.widget_specific_header_container, fillInIntent)
+                views.setOnClickFillInIntent(R.id.widget_header_title, fillInIntent)
                 views
             }
             is DisplayRow.ImageBanner -> {

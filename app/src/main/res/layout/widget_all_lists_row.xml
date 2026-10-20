@@ -6,21 +6,21 @@
     android:orientation="horizontal"
     android:gravity="center_vertical"
     android:background="@drawable/widget_item_card_bg"
-    android:paddingLeft="8dp"
-    android:paddingRight="8dp"
-    android:paddingTop="6dp"
-    android:paddingBottom="6dp">
+    android:paddingLeft="10dp"
+    android:paddingRight="10dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
 
-    <!-- List Icon Badge -->
-    <TextView
+    <!-- Exact List Vector Icon on Rounded Square Background -->
+    <ImageView
         android:id="@+id/widget_list_row_icon"
-        android:layout_width="28dp"
-        android:layout_height="28dp"
-        android:layout_marginEnd="6dp"
-        android:gravity="center"
-        android:text="📋"
-        android:textSize="14sp"
-        android:background="@drawable/widget_tag_badge_bg" />
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginEnd="10dp"
+        android:padding="5dp"
+        android:background="@drawable/widget_icon_badge_bg"
+        android:contentDescription="@null"
+        android:src="@drawable/ic_widget_tag" />
 
     <!-- List Information -->
     <LinearLayout
@@ -29,51 +29,43 @@
         android:layout_weight="1"
         android:orientation="vertical">
 
+        <!-- List Title (never truncated, wordwrap) -->
         <TextView
             android:id="@+id/widget_list_row_name"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="List Name"
             android:textColor="#FFFFFF"
-            android:textSize="13.5sp"
-            android:textStyle="bold"
-            android:maxLines="1"
-            android:ellipsize="end" />
+            android:textSize="14sp"
+            android:textStyle="bold" />
 
+        <!-- Number of Items (on its own line directly beneath list title) -->
+        <TextView
+            android:id="@+id/widget_list_row_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0 items"
+            android:textColor="#CBD5E1"
+            android:textSize="11sp"
+            android:paddingTop="2dp" />
+
+        <!-- List Description (Optional) -->
         <TextView
             android:id="@+id/widget_list_row_desc"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="List description..."
-            android:textColor="#E2E8F0"
+            android:textColor="#94A3B8"
             android:textSize="10.5sp"
-            android:maxLines="1"
-            android:ellipsize="end"
-            android:paddingTop="1dp" />
+            android:paddingTop="2dp"
+            android:visibility="gone" />
 
+        <!-- Date hidden -->
         <TextView
             android:id="@+id/widget_list_row_date"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="📅 Created Aug 28, 2026"
-            android:textColor="#CBD5E1"
-            android:textSize="9.5sp"
-            android:paddingTop="1dp" />
+            android:visibility="gone" />
     </LinearLayout>
-
-    <TextView
-        android:id="@+id/widget_list_row_count"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="0 items"
-        android:textColor="#F472B6"
-        android:textSize="10.5sp"
-        android:textStyle="bold"
-        android:background="@drawable/widget_meta_badge_bg"
-        android:paddingLeft="6dp"
-        android:paddingRight="6dp"
-        android:paddingTop="2dp"
-        android:paddingBottom="2dp"
-        android:layout_marginStart="6dp" />
 
 </LinearLayout>

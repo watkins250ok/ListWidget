@@ -80,19 +80,28 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                         }
                     }
                 } else {
+                    val openListDetailId = intent.getLongExtra(EXTRA_OPEN_LIST_DETAIL_ID, -1L)
+                    val previewItemId = intent.getLongExtra(EXTRA_PREVIEW_ITEM_ID, -1L)
                     val openItemId = intent.getLongExtra(EXTRA_OPEN_ITEM_ID, -1L)
                     val listId = intent.getLongExtra(EXTRA_LIST_ID, -1L)
 
-                    val targetIntent = Intent(context, MainActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                        if (openItemId > 0) {
-                            putExtra(EXTRA_OPEN_ITEM_ID, openItemId)
+                    if (openListDetailId > 0) {
+                        val targetIntent = Intent(context, WidgetQuickAddActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
+                            putExtra(EXTRA_OPEN_LIST_DETAIL_ID, openListDetailId)
                         }
-                        if (listId > 0) {
-                            putExtra(EXTRA_LIST_ID, listId)
+                        context.startActivity(targetIntent)
+                    } else {
+                        val targetItemId = if (previewItemId > 0) previewItemId else openItemId
+                        if (targetItemId > 0) {
+                            val targetIntent = Intent(context, WidgetQuickAddActivity::class.java).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
+                                putExtra(EXTRA_PREVIEW_ITEM_ID, targetItemId)
+                                if (listId > 0) putExtra(EXTRA_LIST_ID, listId)
+                            }
+                            context.startActivity(targetIntent)
                         }
                     }
-                    context.startActivity(targetIntent)
                 }
             }
             ACTION_TOGGLE_TASK -> {
@@ -132,6 +141,7 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
         const val EXTRA_IS_CHECKED = "extra_is_checked"
         const val EXTRA_LIST_ID = "extra_list_id"
         const val EXTRA_OPEN_ITEM_ID = "extra_open_item_id"
+        const val EXTRA_OPEN_LIST_DETAIL_ID = "extra_open_list_detail_id"
         const val EXTRA_PREVIEW_ITEM_ID = "extra_preview_item_id"
         const val EXTRA_QUICK_ADD = "extra_quick_add"
         const val EXTRA_QUICK_ADD_LIST = "extra_quick_add_list"

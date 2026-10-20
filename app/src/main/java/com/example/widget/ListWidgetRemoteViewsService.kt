@@ -35,6 +35,27 @@ fun getCategoryDrawableRes(categoryName: String): Int {
     }
 }
 
+fun getIconDrawableRes(iconName: String): Int {
+    return when (iconName.trim().lowercase()) {
+        "check", "checklist", "task", "task_alt", "done", "numbers" -> R.drawable.ic_widget_checkbox_checked
+        "home", "house" -> R.drawable.ic_widget_home
+        "analytics", "trending", "chart", "bar_chart", "improvement", "improvements", "stats" -> R.drawable.ic_widget_analytics
+        "movie", "tv", "film", "watchlist", "cinema" -> R.drawable.ic_widget_movie
+        "shopping", "shop", "grocery", "mall", "cart" -> R.drawable.ic_widget_shopping
+        "work", "briefcase" -> R.drawable.ic_widget_work
+        "idea", "lightbulb", "sparkles" -> R.drawable.ic_widget_lightbulb
+        "star", "favorite", "flag", "bookmark" -> R.drawable.ic_widget_star
+        "heart" -> R.drawable.ic_widget_heart
+        "folder" -> R.drawable.ic_widget_folder
+        "fitness", "gym", "sports", "health" -> R.drawable.ic_widget_fitness
+        "book", "reading", "school" -> R.drawable.ic_widget_book
+        "code", "terminal" -> R.drawable.ic_widget_code
+        "person", "team", "group" -> R.drawable.ic_widget_person
+        "note", "description", "receipt", "mail" -> R.drawable.ic_widget_description
+        else -> R.drawable.ic_widget_tag
+    }
+}
+
 class ListWidgetRemoteViewsService : RemoteViewsService() {
     override fun onGetViewFactory(intent: Intent): RemoteViewsFactory {
         val appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, 0)
@@ -177,23 +198,17 @@ class ListWidgetRemoteViewsFactory(
             val views = RemoteViews(context.packageName, R.layout.widget_all_lists_row)
 
             views.setTextViewText(R.id.widget_list_row_name, list.name)
-            views.setTextViewTextSize(R.id.widget_list_row_name, TypedValue.COMPLEX_UNIT_SP, 13.5f * textScale)
+            views.setTextViewTextSize(R.id.widget_list_row_name, TypedValue.COMPLEX_UNIT_SP, 14f * textScale)
 
-            // Icon
-            val iconEmoji = when (list.iconName) {
-                "check", "checklist" -> "✅"
-                "shopping" -> "🛒"
-                "work" -> "💼"
-                "idea" -> "💡"
-                "star" -> "⭐"
-                "folder" -> "📁"
-                "book", "bookmark" -> "📖"
-                "favorite", "heart" -> "❤️"
-                "plane" -> "✈️"
-                "fitness" -> "🏋️"
-                else -> "📋"
+            // Exact List Vector Icon with exact list color
+            val iconRes = getIconDrawableRes(list.iconName)
+            views.setImageViewResource(R.id.widget_list_row_icon, iconRes)
+            val listColor = try {
+                Color.parseColor(list.colorHex)
+            } catch (_: Exception) {
+                Color.parseColor("#7C3AED")
             }
-            views.setTextViewText(R.id.widget_list_row_icon, iconEmoji)
+            views.setInt(R.id.widget_list_row_icon, "setColorFilter", listColor)
 
             // Description
             if (!list.description.isNullOrBlank()) {
@@ -204,20 +219,20 @@ class ListWidgetRemoteViewsFactory(
                 views.setViewVisibility(R.id.widget_list_row_desc, View.GONE)
             }
 
-            // Creation Date
-            val createdStr = dateFormat.format(Date(list.createdAt))
-            views.setTextViewText(R.id.widget_list_row_date, "📅 Created $createdStr")
-            views.setTextViewTextSize(R.id.widget_list_row_date, TypedValue.COMPLEX_UNIT_SP, 9.5f * textScale)
+            // Hide Creation Date
+            views.setViewVisibility(R.id.widget_list_row_date, View.GONE)
 
-            // Count badge
+            // Number of items on its own line directly beneath title
             val count = listCountMap[list.id] ?: 0
             views.setTextViewText(R.id.widget_list_row_count, "$count item${if (count == 1) "" else "s"}")
-            views.setTextViewTextSize(R.id.widget_list_row_count, TypedValue.COMPLEX_UNIT_SP, 10.5f * textScale)
+            views.setTextViewTextSize(R.id.widget_list_row_count, TypedValue.COMPLEX_UNIT_SP, 11f * textScale)
 
+            // Fill-in Intent to open List View in a floating pop-up over homescreen
             val fillInIntent = Intent().apply {
-                putExtra(ListAppWidgetProvider.EXTRA_LIST_ID, list.id)
+                putExtra(ListAppWidgetProvider.EXTRA_OPEN_LIST_DETAIL_ID, list.id)
             }
             views.setOnClickFillInIntent(R.id.widget_list_row_container, fillInIntent)
+            views.setOnClickFillInIntent(R.id.widget_list_row_name, fillInIntent)
             return views
         }
 
@@ -244,6 +259,7 @@ class ListWidgetRemoteViewsFactory(
         val isTask = item.type == "TASK" || item.effectiveCategory.equals("Task", ignoreCase = true)
 
         if (isTask) {
+            views.setInt(R.id.widget_item_check_icon, "setBackgroundResource", 0)
             if (item.isChecked) {
                 views.setImageViewResource(R.id.widget_item_check_icon, R.drawable.ic_widget_checkbox_checked)
                 views.setTextColor(R.id.widget_item_title, Color.parseColor("#94A3B8"))
@@ -258,6 +274,7 @@ class ListWidgetRemoteViewsFactory(
             }
             views.setOnClickFillInIntent(R.id.widget_item_check_icon, checkFillInIntent)
         } else {
+            views.setInt(R.id.widget_item_check_icon, "setBackgroundResource", R.drawable.widget_icon_badge_bg)
             val categoryRes = getCategoryDrawableRes(item.effectiveCategory)
             views.setImageViewResource(R.id.widget_item_check_icon, categoryRes)
             views.setTextColor(R.id.widget_item_title, Color.parseColor("#FFFFFF"))
@@ -297,12 +314,12 @@ class ListWidgetRemoteViewsFactory(
             views.setViewVisibility(R.id.widget_item_desc, View.GONE)
         }
 
-        // Fill-in Intent for Item Row (Opens app to Items page with Item Preview)
-        val fillInIntent = Intent().apply {
-            putExtra(ListAppWidgetProvider.EXTRA_OPEN_ITEM_ID, item.id)
+        // Fill-in Intent for Target B: Content Title Area (Opens Item Preview in dialog pop-up over home screen)
+        val detailsFillInIntent = Intent().apply {
+            putExtra(ListAppWidgetProvider.EXTRA_PREVIEW_ITEM_ID, item.id)
             putExtra(ListAppWidgetProvider.EXTRA_LIST_ID, item.listId)
         }
-        views.setOnClickFillInIntent(R.id.widget_item_container, fillInIntent)
+        views.setOnClickFillInIntent(R.id.widget_item_content_container, detailsFillInIntent)
 
         return views
     }
