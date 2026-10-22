@@ -8,36 +8,43 @@
     android:padding="10dp"
     android:layout_marginBottom="4dp">
 
-    <!-- Badges Row -->
+    <!-- Title Top -->
+    <TextView
+        android:id="@+id/widget_header_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Task Title"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="6dp" />
+
+    <!-- Badges Row Beneath Item Title: Category Icon, Priority Badge, List Name -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginBottom="6dp">
+        android:gravity="center_vertical">
 
-        <TextView
-            android:id="@+id/widget_header_category_badge"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Task"
-            android:textColor="#FFFFFF"
-            android:textSize="10sp"
-            android:textStyle="bold"
-            android:background="@drawable/widget_tag_badge_bg"
-            android:paddingLeft="8dp"
-            android:paddingRight="8dp"
-            android:paddingTop="3dp"
-            android:paddingBottom="3dp"
-            android:layout_marginEnd="6dp" />
+        <!-- Category Icon -->
+        <ImageView
+            android:id="@+id/widget_header_category_icon"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:padding="3dp"
+            android:background="@drawable/widget_icon_badge_bg"
+            android:layout_marginEnd="6dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_widget_tag" />
 
+        <!-- Priority Badge -->
         <TextView
             android:id="@+id/widget_header_priority_badge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="High Priority"
-            android:textColor="#F472B6"
-            android:textSize="10sp"
+            android:textColor="#FFFFFF"
+            android:textSize="10.5sp"
             android:textStyle="bold"
             android:background="@drawable/widget_meta_badge_bg"
             android:paddingLeft="8dp"
@@ -51,6 +58,7 @@
             android:layout_height="1dp"
             android:layout_weight="1" />
 
+        <!-- List Name -->
         <TextView
             android:id="@+id/widget_header_list_name"
             android:layout_width="wrap_content"
@@ -58,31 +66,6 @@
             android:text="List"
             android:textColor="#CBD5E1"
             android:textSize="11sp"
-            android:textStyle="bold" />
-    </LinearLayout>
-
-    <!-- Title and Checkbox -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <ImageView
-            android:id="@+id/widget_header_checkbox"
-            android:layout_width="22dp"
-            android:layout_height="22dp"
-            android:src="@drawable/ic_widget_checkbox_unchecked"
-            android:layout_marginEnd="8dp" />
-
-        <TextView
-            android:id="@+id/widget_header_title"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Task Title"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
             android:textStyle="bold" />
     </LinearLayout>
 </LinearLayout>

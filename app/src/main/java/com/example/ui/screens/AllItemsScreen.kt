@@ -125,6 +125,8 @@ fun AllItemsScreen(
             .sorted()
     }
 
+    var hideCheckedItems by remember { mutableStateOf(true) }
+
     // Filter items
     val filteredItems = remember(
         items,
@@ -133,9 +135,11 @@ fun AllItemsScreen(
         selectedCategories,
         selectedPriorities,
         sortOption,
+        hideCheckedItems,
         listsMap
     ) {
         items.filter { item ->
+            val matchesHideChecked = if (hideCheckedItems) !item.isChecked else true
             val matchesSearch = if (searchQuery.isBlank()) true else {
                 item.title.contains(searchQuery, ignoreCase = true) ||
                 item.description.contains(searchQuery, ignoreCase = true) ||
@@ -152,7 +156,7 @@ fun AllItemsScreen(
                 selectedPriorities.contains(item.priority.uppercase()) ||
                 selectedPriorities.any { it.equals(item.priority, ignoreCase = true) }
             }
-            matchesSearch && matchesTags && matchesCategories && matchesPriorities
+            matchesHideChecked && matchesSearch && matchesTags && matchesCategories && matchesPriorities
         }.let { listToOrder ->
             when (sortOption) {
                 ItemSortOption.DATE_DESC -> listToOrder.sortedByDescending { it.createdAt }
@@ -467,6 +471,23 @@ fun AllItemsScreen(
                                         }
                                     },
                                     onClick = { onToggleGroupByCategory(!groupByCategory) }
+                                )
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Checkbox(
+                                                checked = hideCheckedItems,
+                                                onCheckedChange = { hideCheckedItems = it }
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Hide Completed Items")
+                                        }
+                                    },
+                                    onClick = { hideCheckedItems = !hideCheckedItems }
                                 )
                             }
                         }

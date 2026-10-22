@@ -73,6 +73,7 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                             try {
                                 val repo = ListRepository(context)
                                 repo.toggleSubTaskChecked(itemId, subtaskIndex)
+                                sendUpdateBroadcast(context)
                             } catch (_: Throwable) {
                             } finally {
                                 pendingResult.finish()
@@ -91,16 +92,26 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                             putExtra(EXTRA_OPEN_LIST_DETAIL_ID, openListDetailId)
                         }
                         context.startActivity(targetIntent)
-                    } else {
-                        val targetItemId = if (previewItemId > 0) previewItemId else openItemId
-                        if (targetItemId > 0) {
-                            val targetIntent = Intent(context, WidgetQuickAddActivity::class.java).apply {
-                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
-                                putExtra(EXTRA_PREVIEW_ITEM_ID, targetItemId)
-                                if (listId > 0) putExtra(EXTRA_LIST_ID, listId)
-                            }
-                            context.startActivity(targetIntent)
+                    } else if (openItemId > 0) {
+                        val targetIntent = Intent(context, MainActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                            putExtra(EXTRA_OPEN_ITEM_ID, openItemId)
+                            if (listId > 0) putExtra(EXTRA_LIST_ID, listId)
                         }
+                        val openPendingIntent = PendingIntent.getActivity(
+                            context,
+                            openItemId.toInt(),
+                            targetIntent,
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                        )
+                        openPendingIntent.send()
+                    } else if (previewItemId > 0) {
+                        val targetIntent = Intent(context, WidgetQuickAddActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
+                            putExtra(EXTRA_PREVIEW_ITEM_ID, previewItemId)
+                            if (listId > 0) putExtra(EXTRA_LIST_ID, listId)
+                        }
+                        context.startActivity(targetIntent)
                     }
                 }
             }
@@ -156,7 +167,6 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                     AllListsWidgetProvider::class.java,
                     AllItemsWidgetProvider::class.java,
                     SpecificListWidgetProvider::class.java,
-                    SpecificItemWidgetProvider::class.java,
                     ListAppWidgetProvider::class.java,
                 )
 
@@ -246,7 +256,13 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                             else -> 1.0f
                         }
 
-                        val titleText = if (item != null) "📌 ${item.title}" else "📌 Featured Item"
+                        val titleText = if (widgetConfig.widgetName.isNotBlank() && widgetConfig.widgetName != "Widget 1" && widgetConfig.widgetName != "Specific Item") {
+                            widgetConfig.widgetName
+                        } else if (item != null) {
+                            item.title
+                        } else {
+                            "Featured Item"
+                        }
                         views.setTextViewText(R.id.widget_item_header_title, titleText)
                         views.setTextViewTextSize(R.id.widget_item_header_title, TypedValue.COMPLEX_UNIT_SP, 14f * textScale)
 
@@ -266,7 +282,7 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                         views.setRemoteAdapter(R.id.widget_specific_item_list, serviceIntent)
                         views.setEmptyView(R.id.widget_specific_item_list, R.id.widget_specific_item_empty)
 
-                        // PendingIntent template for item clicks (Broadcast)
+                        // PendingIntent template for specific item clicks (Broadcast to ListAppWidgetProvider.onReceive)
                         val clickIntentTemplate = Intent(context, ListAppWidgetProvider::class.java).apply {
                             action = ACTION_ITEM_CLICK
                         }
@@ -294,7 +310,7 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                     val headerTitle = when (widgetConfig.widgetType) {
                         com.example.data.model.WidgetType.ALL_LISTS -> "All Lists"
                         WidgetType.ALL_ITEMS -> "All Items"
-                        com.example.data.model.WidgetType.SPECIFIC_LIST -> "${targetList?.name ?: "All Items"} ▾"
+                        WidgetType.SPECIFIC_LIST -> targetList?.name ?: "All Items"
                         else -> "My List"
                     }
 
@@ -353,11 +369,11 @@ open class ListAppWidgetProvider : AppWidgetProvider() {
                     views.setRemoteAdapter(R.id.widget_list_view, serviceIntent)
                     views.setEmptyView(R.id.widget_list_view, R.id.widget_empty_view)
 
-                    // PendingIntent template for item clicks (Broadcast to ListAppWidgetProvider.onReceive)
-                    val clickIntentTemplate = Intent(context, ListAppWidgetProvider::class.java).apply {
-                        action = ACTION_ITEM_CLICK
+                    // PendingIntent template for item clicks (Direct Activity PendingIntent to WidgetQuickAddActivity for pop-ups and silent toggling)
+                    val clickIntentTemplate = Intent(context, WidgetQuickAddActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
                     }
-                    val clickPendingIntent = PendingIntent.getBroadcast(
+                    val clickPendingIntent = PendingIntent.getActivity(
                         context,
                         (appWidgetId * 100) + 3,
                         clickIntentTemplate,

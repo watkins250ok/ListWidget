@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
@@ -50,6 +51,7 @@ class WidgetQuickAddActivity : ComponentActivity() {
 
         val toggleCheck = intent.getBooleanExtra(ListAppWidgetProvider.EXTRA_TOGGLE_CHECK, false)
         val isListQuickAdd = intent.getBooleanExtra(ListAppWidgetProvider.EXTRA_QUICK_ADD_LIST, false)
+        val isItemQuickAdd = intent.getBooleanExtra(ListAppWidgetProvider.EXTRA_QUICK_ADD, false)
         val listId = intent.getLongExtra(ListAppWidgetProvider.EXTRA_LIST_ID, 0L)
         val openListDetailId = intent.getLongExtra(ListAppWidgetProvider.EXTRA_OPEN_LIST_DETAIL_ID, -1L)
         val previewItemId = intent.getLongExtra(ListAppWidgetProvider.EXTRA_PREVIEW_ITEM_ID, -1L)
@@ -108,7 +110,46 @@ class WidgetQuickAddActivity : ComponentActivity() {
                         .clickable { finish() },
                     contentAlignment = Alignment.Center
                 ) {
-                    if (targetListForDetail != null) {
+                    if (previewItemId > 0 && previewItem == null) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    } else if (openListDetailId > 0 && targetListForDetail == null) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    } else if (previewItem != null) {
+                        ItemPreviewDialog(
+                            item = previewItem!!,
+                            lists = lists,
+                            categories = categories,
+                            priorities = priorities,
+                            onDismiss = { finish() },
+                            onEdit = { item ->
+                                editingItemFromPreview = item
+                                previewItem = null
+                            },
+                            onDelete = { item ->
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    repo.deleteItem(item)
+                                    ListAppWidgetProvider.sendUpdateBroadcast(applicationContext)
+                                    finish()
+                                }
+                            },
+                            onToggleCheck = { id, checked ->
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    repo.toggleTaskChecked(id, checked)
+                                    ListAppWidgetProvider.sendUpdateBroadcast(applicationContext)
+                                }
+                            },
+                            onToggleSubtask = { idx, checked ->
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    repo.toggleSubTaskChecked(previewItem!!.id, idx)
+                                    val updatedItem = repo.getItemById(previewItem!!.id)
+                                    withContext(Dispatchers.Main) {
+                                        if (updatedItem != null) previewItem = updatedItem
+                                    }
+                                    ListAppWidgetProvider.sendUpdateBroadcast(applicationContext)
+                                }
+                            }
+                        )
+                    } else if (targetListForDetail != null) {
                         val listItems = allItems.filter { it.listId == targetListForDetail!!.id }
                         Surface(
                             modifier = Modifier
@@ -171,31 +212,6 @@ class WidgetQuickAddActivity : ComponentActivity() {
                                 }
                             )
                         }
-                    } else if (previewItem != null) {
-                        ItemPreviewDialog(
-                            item = previewItem!!,
-                            lists = lists,
-                            categories = categories,
-                            priorities = priorities,
-                            onDismiss = { finish() },
-                            onEdit = { item ->
-                                editingItemFromPreview = item
-                                previewItem = null
-                            },
-                            onDelete = { item ->
-                                CoroutineScope(Dispatchers.IO).launch {
-                                    repo.deleteItem(item)
-                                    ListAppWidgetProvider.sendUpdateBroadcast(applicationContext)
-                                    finish()
-                                }
-                            },
-                            onToggleCheck = { id, checked ->
-                                CoroutineScope(Dispatchers.IO).launch {
-                                    repo.toggleTaskChecked(id, checked)
-                                    ListAppWidgetProvider.sendUpdateBroadcast(applicationContext)
-                                }
-                            }
-                        )
                     } else if (editingItemFromPreview != null) {
                         ItemPopupDialog(
                             itemToEdit = editingItemFromPreview,
@@ -240,7 +256,7 @@ class WidgetQuickAddActivity : ComponentActivity() {
                                 }
                             }
                         )
-                    } else {
+                    } else if (isItemQuickAdd) {
                         ItemPopupDialog(
                             defaultListId = listId,
                             lists = lists,

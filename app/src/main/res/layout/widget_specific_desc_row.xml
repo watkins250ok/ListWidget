@@ -22,6 +22,8 @@
         android:id="@+id/widget_specific_desc_text"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:autoLink="web"
+        android:linksClickable="true"
         android:text="Description text goes here..."
         android:textColor="#F1F5F9"
         android:textSize="13sp"

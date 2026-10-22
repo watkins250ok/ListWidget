@@ -159,6 +159,7 @@ fun WidgetConfigScreen(
     var colorDropdownExpanded by remember { mutableStateOf(false) }
     var catMenuExpanded by remember { mutableStateOf(false) }
     var tagMenuExpanded by remember { mutableStateOf(false) }
+    var itemMenuExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
@@ -176,22 +177,6 @@ fun WidgetConfigScreen(
                 .filter { it.isNotBlank() }
         }.distinct().sorted()
     }
-
-    val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            try {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            } catch (_: Throwable) {}
-            config = config.copy(customImageUri = uri.toString())
-        }
-    }
-
-    var itemSearchQuery by remember { mutableStateOf("") }
 
     val themeColorOptions = listOf(
         Triple("PURPLE", "Purple Glow", Color(0xFF7C3AED)),
@@ -597,85 +582,75 @@ fun WidgetConfigScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                             }
-                            Text(
-                                text = "Choose a specific task or note to display prominently on your home screen:",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
 
+                            // Field for "Widget Title"
+                            Text("Widget Title", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                             OutlinedTextField(
-                                value = itemSearchQuery,
-                                onValueChange = { itemSearchQuery = it },
-                                placeholder = { Text("Search items...") },
-                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                                value = config.widgetName,
+                                onValueChange = { config = config.copy(widgetName = it) },
+                                placeholder = { Text("e.g. Featured Goal, My Main Task...") },
+                                singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                singleLine = true
+                                shape = RoundedCornerShape(12.dp)
                             )
 
-                            val filteredItems = remember(allItems, itemSearchQuery) {
-                                if (itemSearchQuery.isBlank()) allItems
-                                else allItems.filter {
-                                    it.title.contains(itemSearchQuery, ignoreCase = true) ||
-                                            it.description.contains(itemSearchQuery, ignoreCase = true)
-                                }
-                            }
+                            // Item Selection Dropdown Menu
+                            val selectedItemObj = allItems.find { it.id == config.itemId } ?: allItems.firstOrNull()
 
-                            if (filteredItems.isEmpty()) {
-                                Text("No items found.", style = MaterialTheme.typography.bodyMedium)
-                            } else {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .heightIn(max = 260.dp)
-                                        .verticalScroll(rememberScrollState()),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                            Text("Select Item", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                Surface(
+                                    onClick = { itemMenuExpanded = true },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    filteredItems.forEach { item ->
-                                        val isSelected = config.itemId == item.id || (config.itemId == 0L && item == filteredItems.first())
-                                        val parentList = allLists.find { it.id == item.listId }
-                                        Surface(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .clickable { config = config.copy(itemId = item.id) },
-                                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                                            border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
-                                            shape = RoundedCornerShape(12.dp)
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(12.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                RadioButton(
-                                                    selected = isSelected,
-                                                    onClick = { config = config.copy(itemId = item.id) }
-                                                )
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text(
-                                                        text = item.title,
-                                                        fontWeight = FontWeight.SemiBold,
-                                                        style = MaterialTheme.typography.bodyMedium
-                                                    )
-                                                    Row(
-                                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = selectedItemObj?.title ?: "Select an item...",
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                                    }
+                                }
+
+                                DropdownMenu(
+                                    expanded = itemMenuExpanded,
+                                    onDismissRequest = { itemMenuExpanded = false }
+                                ) {
+                                    if (allItems.isEmpty()) {
+                                        DropdownMenuItem(text = { Text("No items available") }, onClick = {})
+                                    } else {
+                                        allItems.forEach { item ->
+                                            val isSel = item.id == config.itemId
+                                            val parentList = allLists.find { it.id == item.listId }
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Column {
+                                                        Text(item.title, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
                                                         Text(
-                                                            text = parentList?.name ?: "List",
-                                                            style = MaterialTheme.typography.labelSmall,
-                                                            color = MaterialTheme.colorScheme.primary
-                                                        )
-                                                        Text("•", style = MaterialTheme.typography.labelSmall)
-                                                        Text(
-                                                            text = item.category,
-                                                            style = MaterialTheme.typography.labelSmall,
+                                                            text = "${parentList?.name ?: "List"} • ${item.category}",
+                                                            fontSize = 11.sp,
                                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                                         )
                                                     }
+                                                },
+                                                onClick = {
+                                                    config = config.copy(
+                                                        itemId = item.id,
+                                                        widgetName = if (config.widgetName.isBlank() || config.widgetName == "Widget 1" || config.widgetName == "Specific Item") item.title else config.widgetName
+                                                    )
+                                                    itemMenuExpanded = false
                                                 }
-                                            }
+                                            )
                                         }
                                     }
                                 }
@@ -699,60 +674,6 @@ fun WidgetConfigScreen(
                                         onClick = { config = config.copy(textSizeScale = key) },
                                         label = { Text(label) }
                                     )
-                                }
-                            }
-
-                            // Featured Image Selector
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                            Text(
-                                text = "Hero Photo Banner (Optional)",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                if (config.customImageUri != null) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(72.dp)
-                                            .clip(RoundedCornerShape(10.dp))
-                                    ) {
-                                        AsyncImage(
-                                            model = config.customImageUri,
-                                            contentDescription = "Selected Photo",
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                    }
-                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        OutlinedButton(
-                                            onClick = {
-                                                photoPickerLauncher.launch(
-                                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                                )
-                                            }
-                                        ) {
-                                            Text("Change Photo")
-                                        }
-                                        TextButton(onClick = { config = config.copy(customImageUri = null) }) {
-                                            Text("Remove Photo (Text Only)")
-                                        }
-                                    }
-                                } else {
-                                    OutlinedButton(
-                                        onClick = {
-                                            photoPickerLauncher.launch(
-                                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                            )
-                                        }
-                                    ) {
-                                        Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(18.dp))
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Add Photo to Card")
-                                    }
                                 }
                             }
                         }

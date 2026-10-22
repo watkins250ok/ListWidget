@@ -373,7 +373,8 @@ fun MainAppScreen(viewModel: ListAppViewModel) {
                     onDismiss = viewModel::closeItemPreview,
                     onEdit = viewModel::editItemFromPreview,
                     onDelete = viewModel::deleteItem,
-                    onToggleCheck = { id, checked -> viewModel.toggleTaskChecked(id, checked) }
+                    onToggleCheck = { id, checked -> viewModel.toggleTaskChecked(id, checked) },
+                    onToggleSubtask = { idx, checked -> viewModel.toggleSubtaskChecked(activeItemForPreview!!.id, idx, checked) }
                 )
             }
 

@@ -105,22 +105,6 @@
                 android:resource="@xml/widget_specific_list_info" />
         </receiver>
 
-        <!-- 4. Specific Item Widget -->
-        <receiver
-            android:name=".widget.SpecificItemWidgetProvider"
-            android:exported="true"
-            android:label="@string/widget_specific_item_label">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.example.widget.ACTION_ITEM_CLICK" />
-                <action android:name="com.example.widget.ACTION_TOGGLE_TASK" />
-                <action android:name="com.example.widget.ACTION_DATA_CHANGED" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_specific_item_info" />
-        </receiver>
-
         <!-- RemoteViews Services for Widget ListViews -->
         <service
             android:name=".widget.ListWidgetRemoteViewsService"

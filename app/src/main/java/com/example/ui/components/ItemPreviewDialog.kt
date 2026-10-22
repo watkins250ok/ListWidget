@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
@@ -53,9 +54,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -91,7 +94,9 @@ fun ItemPreviewDialog(
     val context = LocalContext.current
     val parentList = remember(lists, item.listId) { lists.find { it.id == item.listId } }
     val category = item.effectiveCategory
-    val subtasks = remember(item.subtasksJson) { SubTask.fromJson(item.subtasksJson) }
+    var currentSubtasks by remember(item.subtasksJson) {
+        mutableStateOf(SubTask.fromJson(item.subtasksJson))
+    }
 
     // State for Delete Confirmation Prompt
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
@@ -277,7 +282,7 @@ fun ItemPreviewDialog(
                         }
                     }
 
-                    // Description Section with Rich Text (ONLY shown if description is set!)
+                    // Description Section with Rich Text & Clickable Links (ONLY shown if description is set!)
                     if (item.description.isNotBlank()) {
                         Column(modifier = Modifier.fillMaxWidth()) {
                             Text(
@@ -382,11 +387,11 @@ fun ItemPreviewDialog(
                         }
                     }
 
-                    // Subtasks Section (ONLY shown if subtasks are set!)
-                    if (subtasks.isNotEmpty()) {
+                    // Subtasks Section (Interactive & Checkable!)
+                    if (currentSubtasks.isNotEmpty()) {
                         Column(modifier = Modifier.fillMaxWidth()) {
                             Text(
-                                text = "SUBTASKS (${subtasks.count { it.isCompleted }}/${subtasks.size})",
+                                text = "SUBTASKS (${currentSubtasks.count { it.isCompleted }}/${currentSubtasks.size})",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 1.sp,
@@ -403,18 +408,26 @@ fun ItemPreviewDialog(
                                     .padding(8.dp),
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                subtasks.forEachIndexed { idx, st ->
+                                currentSubtasks.forEachIndexed { idx, st ->
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .clickable {
+                                                val newChecked = !st.isCompleted
+                                                currentSubtasks = currentSubtasks.toMutableList().also {
+                                                    it[idx] = st.copy(isCompleted = newChecked)
+                                                }
+                                                onToggleSubtask(idx, newChecked)
+                                            }
+                                            .padding(vertical = 4.dp, horizontal = 4.dp)
                                     ) {
                                         Icon(
                                             imageVector = if (st.isCompleted) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
-                                            contentDescription = null,
+                                            contentDescription = "Toggle Subtask",
                                             tint = if (st.isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier
-                                                .size(18.dp)
-                                                .clickable { onToggleSubtask(idx, !st.isCompleted) }
+                                            modifier = Modifier.size(20.dp)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
@@ -547,8 +560,8 @@ fun FormattedRichText(
             val trimmed = rawLine.trim()
             when {
                 trimmed.startsWith("# ") -> {
-                    Text(
-                        text = buildAnnotatedStringWithFormatting(trimmed.removePrefix("# ")),
+                    ClickableRichText(
+                        text = trimmed.removePrefix("# "),
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -556,8 +569,8 @@ fun FormattedRichText(
                     )
                 }
                 trimmed.startsWith("## ") -> {
-                    Text(
-                        text = buildAnnotatedStringWithFormatting(trimmed.removePrefix("## ")),
+                    ClickableRichText(
+                        text = trimmed.removePrefix("## "),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -565,8 +578,8 @@ fun FormattedRichText(
                     )
                 }
                 trimmed.startsWith("### ") -> {
-                    Text(
-                        text = buildAnnotatedStringWithFormatting(trimmed.removePrefix("### ")),
+                    ClickableRichText(
+                        text = trimmed.removePrefix("### "),
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.Bold
                         )
@@ -579,8 +592,8 @@ fun FormattedRichText(
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = buildAnnotatedStringWithFormatting(trimmed.removePrefix("> ")),
+                        ClickableRichText(
+                            text = trimmed.removePrefix("> "),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontStyle = FontStyle.Italic,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -603,8 +616,8 @@ fun FormattedRichText(
                             ),
                             modifier = Modifier.padding(end = 6.dp)
                         )
-                        Text(
-                            text = buildAnnotatedStringWithFormatting(bulletContent),
+                        ClickableRichText(
+                            text = bulletContent,
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 lineHeight = 18.sp
                             )
@@ -625,8 +638,8 @@ fun FormattedRichText(
                             ),
                             modifier = Modifier.padding(end = 6.dp)
                         )
-                        Text(
-                            text = buildAnnotatedStringWithFormatting(bulletContent),
+                        ClickableRichText(
+                            text = bulletContent,
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 lineHeight = 18.sp
                             )
@@ -637,8 +650,8 @@ fun FormattedRichText(
                     Spacer(modifier = Modifier.height(4.dp))
                 }
                 else -> {
-                    Text(
-                        text = buildAnnotatedStringWithFormatting(rawLine),
+                    ClickableRichText(
+                        text = rawLine,
                         style = MaterialTheme.typography.bodyMedium.copy(
                             lineHeight = 20.sp,
                             color = MaterialTheme.colorScheme.onSurface
@@ -650,10 +663,102 @@ fun FormattedRichText(
     }
 }
 
-private fun buildAnnotatedStringWithFormatting(text: String): AnnotatedString {
+@Composable
+private fun ClickableRichText(
+    text: String,
+    style: TextStyle,
+    modifier: Modifier = Modifier
+) {
+    val uriHandler = LocalUriHandler.current
+    val linkColor = MaterialTheme.colorScheme.primary
+    val annotatedString = remember(text, linkColor) { buildAnnotatedStringWithFormatting(text, linkColor) }
+
+    ClickableText(
+        text = annotatedString,
+        style = style,
+        modifier = modifier,
+        onClick = { offset ->
+            annotatedString.getStringAnnotations(tag = "URL", start = offset, end = offset)
+                .firstOrNull()?.let { annotation ->
+                    try {
+                        uriHandler.openUri(annotation.item)
+                    } catch (_: Exception) {}
+                }
+        }
+    )
+}
+
+private fun buildAnnotatedStringWithFormatting(text: String, linkColor: Color): AnnotatedString {
     val builder = AnnotatedString.Builder()
     var i = 0
     while (i < text.length) {
+        // Markdown links: [Label](https://url)
+        if (text[i] == '[') {
+            val closeBracket = text.indexOf(']', i + 1)
+            if (closeBracket != -1 && closeBracket + 1 < text.length && text[closeBracket + 1] == '(') {
+                val closeParen = text.indexOf(')', closeBracket + 2)
+                if (closeParen != -1) {
+                    val linkLabel = text.substring(i + 1, closeBracket)
+                    val linkUrl = text.substring(closeBracket + 2, closeParen)
+
+                    val startPos = builder.length
+                    builder.append(linkLabel)
+                    val endPos = builder.length
+
+                    builder.addStyle(
+                        SpanStyle(
+                            color = linkColor,
+                            textDecoration = TextDecoration.Underline,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        startPos,
+                        endPos
+                    )
+                    builder.addStringAnnotation(
+                        tag = "URL",
+                        annotation = linkUrl,
+                        start = startPos,
+                        end = endPos
+                    )
+
+                    i = closeParen + 1
+                    continue
+                }
+            }
+        }
+
+        // Bare URLs: https:// or http://
+        if (text.startsWith("http://", i) || text.startsWith("https://", i)) {
+            var urlEnd = i
+            while (urlEnd < text.length && !text[urlEnd].isWhitespace() && text[urlEnd] != ')' && text[urlEnd] != ']') {
+                urlEnd++
+            }
+            val rawUrl = text.substring(i, urlEnd)
+            val startPos = builder.length
+            builder.append(rawUrl)
+            val endPos = builder.length
+
+            builder.addStyle(
+                SpanStyle(
+                    color = linkColor,
+                    textDecoration = TextDecoration.Underline,
+                    fontWeight = FontWeight.Bold
+                ),
+                startPos,
+                endPos
+            )
+            builder.addStringAnnotation(
+                tag = "URL",
+                annotation = rawUrl,
+                start = startPos,
+                end = endPos
+            )
+
+            i = urlEnd
+            continue
+        }
+
+        // Bold: **text**
         if (i + 1 < text.length && text[i] == '*' && text[i + 1] == '*') {
             val end = text.indexOf("**", i + 2)
             if (end != -1) {
@@ -665,6 +770,8 @@ private fun buildAnnotatedStringWithFormatting(text: String): AnnotatedString {
                 continue
             }
         }
+
+        // Italic: *text*
         if (text[i] == '*') {
             val end = text.indexOf('*', i + 1)
             if (end != -1) {
@@ -676,6 +783,8 @@ private fun buildAnnotatedStringWithFormatting(text: String): AnnotatedString {
                 continue
             }
         }
+
+        // Code: `code`
         if (text[i] == '`') {
             val end = text.indexOf('`', i + 1)
             if (end != -1) {
@@ -687,6 +796,7 @@ private fun buildAnnotatedStringWithFormatting(text: String): AnnotatedString {
                 continue
             }
         }
+
         builder.append(text[i])
         i++
     }

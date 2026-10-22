@@ -15,6 +15,7 @@ import com.example.data.model.PriorityOption
 import com.example.data.model.WidgetStyleConfig
 import com.example.data.model.WidgetType
 import com.example.data.repository.ListRepository
+import com.example.widget.ListAppWidgetProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -292,6 +293,17 @@ class ListAppViewModel(application: Application) : AndroidViewModel(application)
     fun toggleTaskChecked(itemId: Long, isChecked: Boolean) {
         viewModelScope.launch {
             repository.toggleTaskChecked(itemId, isChecked)
+        }
+    }
+
+    fun toggleSubtaskChecked(itemId: Long, subtaskIndex: Int, isChecked: Boolean) {
+        viewModelScope.launch {
+            repository.toggleSubTaskChecked(itemId, subtaskIndex)
+            val updated = repository.getItemById(itemId)
+            if (_activeItemForPreview.value?.id == itemId && updated != null) {
+                _activeItemForPreview.value = updated
+            }
+            ListAppWidgetProvider.sendUpdateBroadcast(getApplication<Application>())
         }
     }
 
